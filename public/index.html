@@ -14,25 +14,106 @@
     </header>
     
     <main class="main-content">
-      <div class="card-stack">
-        <div class="profile-card" id="currentCard">
-          <div class="profile-image">
-            <div class="placeholder-avatar"></div>
+      <!-- Discover Tab -->
+      <div class="tab-content active" id="discover-tab">
+        <div class="card-stack">
+          <div class="profile-card" id="currentCard">
+            <div class="profile-image">
+              <div class="placeholder-avatar"></div>
+            </div>
+            <div class="profile-info">
+              <h2 class="profile-name">Welcome to Intro</h2>
+              <p class="profile-bio">A modern dating platform for introverts and homebodies to connect online through simple swiping, matching, and optional interactive virtual experiences.</p>
+            </div>
           </div>
-          <div class="profile-info">
-            <h2 class="profile-name">Welcome to Intro</h2>
-            <p class="profile-bio">A modern dating platform for introverts and homebodies to connect online through simple swiping, matching, and optional interactive virtual experiences.</p>
+        </div>
+        
+        <div class="action-buttons">
+          <button class="action-btn pass" id="passBtn" aria-label="Pass">
+            <span class="icon">✕</span>
+          </button>
+          <button class="action-btn like" id="likeBtn" aria-label="Like">
+            <span class="icon">♥</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Matches Tab -->
+      <div class="tab-content" id="matches-tab">
+        <div class="section-title">Your Matches</div>
+        <div class="matches-list">
+          <div class="match-item">
+            <div class="match-avatar">👥</div>
+            <div class="match-info">
+              <h3>Emma & Alex</h3>
+              <p>Connected 2 days ago</p>
+            </div>
+          </div>
+          <div class="match-item">
+            <div class="match-avatar">👥</div>
+            <div class="match-info">
+              <h3>Jordan & You</h3>
+              <p>Connected 1 week ago</p>
+            </div>
+          </div>
+          <div class="match-item">
+            <div class="match-avatar">👥</div>
+            <div class="match-info">
+              <h3>Sam & You</h3>
+              <p>Connected 2 weeks ago</p>
+            </div>
           </div>
         </div>
       </div>
-      
-      <div class="action-buttons">
-        <button class="action-btn pass" id="passBtn" aria-label="Pass">
-          <span class="icon">✕</span>
-        </button>
-        <button class="action-btn like" id="likeBtn" aria-label="Like">
-          <span class="icon">♥</span>
-        </button>
+
+      <!-- Experiences Tab -->
+      <div class="tab-content" id="experiences-tab">
+        <div class="section-title">Virtual Experiences</div>
+        <div class="experiences-grid">
+          <div class="experience-card">
+            <div class="exp-icon">☕</div>
+            <h3>Virtual Cafe</h3>
+            <p>Cozy coffee chat with someone new</p>
+          </div>
+          <div class="experience-card">
+            <div class="exp-icon">🎬</div>
+            <h3>Movie Night</h3>
+            <p>Watch together and chat</p>
+          </div>
+          <div class="experience-card">
+            <div class="exp-icon">🎮</div>
+            <h3>Gaming</h3>
+            <p>Play games together online</p>
+          </div>
+          <div class="experience-card">
+            <div class="exp-icon">📚</div>
+            <h3>Book Club</h3>
+            <p>Discuss books with fellow readers</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Tab -->
+      <div class="tab-content" id="profile-tab">
+        <div class="profile-section">
+          <div class="profile-avatar-large">👤</div>
+          <h2>Your Profile</h2>
+          <div class="profile-form">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" placeholder="Your name" value="Alex">
+            </div>
+            <div class="form-group">
+              <label>Age</label>
+              <input type="number" placeholder="Your age" value="28">
+            </div>
+            <div class="form-group">
+              <label>Bio</label>
+              <textarea placeholder="Tell us about yourself">Bookworm and coffee enthusiast. Looking for someone to share quiet evenings and deep conversations.</textarea>
+            </div>
+            <button class="save-btn">Save Profile</button>
+          </div>
+        </div>
       </div>
     </main>
     

@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const passBtn = document.getElementById('passBtn');
   const likeBtn = document.getElementById('likeBtn');
   const navItems = document.querySelectorAll('.nav-item');
+  const tabContents = document.querySelectorAll('.tab-content');
 
   const profiles = [
     {
@@ -49,13 +50,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 300);
   }
 
+  function switchTab(tabName) {
+    // Hide all tabs
+    tabContents.forEach(tab => tab.classList.remove('active'));
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName + '-tab');
+    if (selectedTab) {
+      selectedTab.classList.add('active');
+    }
+
+    // Update nav items
+    navItems.forEach(item => {
+      item.classList.remove('active');
+      if (item.dataset.tab === tabName) {
+        item.classList.add('active');
+      }
+    });
+  }
+
   passBtn.addEventListener('click', () => swipe('left'));
   likeBtn.addEventListener('click', () => swipe('right'));
 
   navItems.forEach(item => {
     item.addEventListener('click', () => {
-      navItems.forEach(nav => nav.classList.remove('active'));
-      item.classList.add('active');
+      const tabName = item.dataset.tab;
+      switchTab(tabName);
     });
   });
 
