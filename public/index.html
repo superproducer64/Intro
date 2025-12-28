@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intro - Connect Without Connecting</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>Intro</h1>
+      <p class="tagline">Calm connection for introverts</p>
+    </header>
+    
+    <main class="main-content">
+      <div class="card-stack">
+        <div class="profile-card" id="currentCard">
+          <div class="profile-image">
+            <div class="placeholder-avatar"></div>
+          </div>
+          <div class="profile-info">
+            <h2 class="profile-name">Welcome to Intro</h2>
+            <p class="profile-bio">A modern dating platform for introverts and homebodies to connect online through simple swiping, matching, and optional interactive virtual experiences.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="action-buttons">
+        <button class="action-btn pass" id="passBtn" aria-label="Pass">
+          <span class="icon">✕</span>
+        </button>
+        <button class="action-btn like" id="likeBtn" aria-label="Like">
+          <span class="icon">♥</span>
+        </button>
+      </div>
+    </main>
+    
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="discover">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-label">Discover</span>
+      </button>
+      <button class="nav-item" data-tab="matches">
+        <span class="nav-icon">💬</span>
+        <span class="nav-label">Matches</span>
+      </button>
+      <button class="nav-item" data-tab="experiences">
+        <span class="nav-icon">☕</span>
+        <span class="nav-label">Experiences</span>
+      </button>
+      <button class="nav-item" data-tab="profile">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label">Profile</span>
+      </button>
+    </nav>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "intro",
+  "version": "0.1.0",
+  "description": "Intro - A modern dating platform for introverts",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
