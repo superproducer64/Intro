@@ -314,6 +314,20 @@ body {
   margin-bottom: 16px;
 }
 
+.profile-avatar-large.initials {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  margin: 0 auto 16px;
+}
+
 .profile-section h2 {
   font-size: 24px;
   margin-bottom: 24px;
