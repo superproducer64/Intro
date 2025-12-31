@@ -7,23 +7,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const profiles = [
     {
-      name: 'Alex, 28',
+      name: 'Emma, 28',
       bio: 'Bookworm and coffee enthusiast. Looking for someone to share quiet evenings and deep conversations.'
     },
     {
-      name: 'Jordan, 25',
+      name: 'Sophia, 25',
       bio: 'Gamer and nature lover. Introvert who enjoys long walks and cozy nights in.'
     },
     {
-      name: 'Sam, 30',
+      name: 'Olivia, 30',
       bio: 'Artist and homebody. Love creating art, watching documentaries, and cooking new recipes.'
     },
     {
-      name: 'Taylor, 27',
+      name: 'Isabella, 27',
       bio: 'Music lover and aspiring writer. Seeking genuine connection over loud parties.'
     },
     {
-      name: 'Casey, 29',
+      name: 'Mia, 29',
       bio: 'Tech enthusiast and plant parent. Prefer board games nights to club scenes.'
     }
   ];
