@@ -70,29 +70,39 @@
       <div class="tab-content" id="experiences-tab">
         <div class="section-title">Virtual Experiences</div>
         <div class="experiences-grid">
-          <div class="experience-card">
+          <div class="experience-card" data-experience="cafe">
             <div class="exp-icon">☕</div>
             <h3>Virtual Cafe</h3>
             <p>Cozy coffee chat with someone new</p>
             <p class="coming-soon">Coming Soon</p>
           </div>
-          <div class="experience-card">
+          <div class="experience-card" data-experience="movie">
             <div class="exp-icon">🎬</div>
             <h3>Movie Night</h3>
             <p>Watch together and chat</p>
             <p class="coming-soon">Coming Soon</p>
           </div>
-          <div class="experience-card">
+          <div class="experience-card" data-experience="gaming">
             <div class="exp-icon">🎮</div>
             <h3>Gaming</h3>
             <p>Play games together online</p>
             <p class="coming-soon">Coming Soon</p>
           </div>
-          <div class="experience-card">
+          <div class="experience-card" data-experience="book">
             <div class="exp-icon">📚</div>
             <h3>Book Club</h3>
             <p>Discuss books with fellow readers</p>
             <p class="coming-soon">Coming Soon</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Experience Preview Modal -->
+      <div class="modal-overlay" id="experienceModal">
+        <div class="modal-content">
+          <button class="modal-close" id="closeModal">&times;</button>
+          <div class="modal-body" id="modalBody">
+            <!-- Dynamic content goes here -->
           </div>
         </div>
       </div>

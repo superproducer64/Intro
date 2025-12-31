@@ -79,4 +79,113 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   updateCard();
+
+  // Experience Modal Functionality
+  const experienceCards = document.querySelectorAll('.experience-card');
+  const modal = document.getElementById('experienceModal');
+  const modalBody = document.getElementById('modalBody');
+  const closeModal = document.getElementById('closeModal');
+
+  const experienceData = {
+    cafe: {
+      icon: '☕',
+      title: 'Virtual Cafe',
+      description: 'A cozy space to have meaningful conversations over virtual coffee.',
+      preview: `
+        <div class="preview-section">
+          <div class="preview-label">Example Chat</div>
+          <div class="preview-chat">
+            <div class="chat-bubble received">Hi! What's your go-to coffee order?</div>
+            <div class="chat-bubble sent">Definitely a vanilla oat latte. You?</div>
+            <div class="chat-bubble received">Classic cappuccino for me! Have you tried the new cafe downtown?</div>
+          </div>
+        </div>
+      `
+    },
+    movie: {
+      icon: '🎬',
+      title: 'Movie Night',
+      description: 'Watch films together in sync and chat about your favorite scenes.',
+      preview: `
+        <div class="preview-section">
+          <div class="preview-label">Now Watching</div>
+          <div class="preview-content">
+            <strong>The Grand Budapest Hotel</strong><br>
+            <span style="color: var(--text-secondary);">Comedy • 1h 39m</span>
+          </div>
+        </div>
+        <div class="preview-section">
+          <div class="preview-label">Live Chat</div>
+          <div class="preview-chat">
+            <div class="chat-bubble received">This cinematography is stunning!</div>
+            <div class="chat-bubble sent">Right? Wes Anderson is a genius</div>
+          </div>
+        </div>
+      `
+    },
+    gaming: {
+      icon: '🎮',
+      title: 'Gaming Together',
+      description: 'Play casual co-op games and bond over shared victories.',
+      preview: `
+        <div class="preview-section">
+          <div class="preview-label">Available Games</div>
+          <div class="preview-content">
+            <div style="margin-bottom: 8px;">🧩 Puzzle Quest Co-op</div>
+            <div style="margin-bottom: 8px;">🃏 Card Game Arena</div>
+            <div style="margin-bottom: 8px;">🎯 Trivia Challenge</div>
+            <div>🌍 Word Adventures</div>
+          </div>
+        </div>
+      `
+    },
+    book: {
+      icon: '📚',
+      title: 'Book Club',
+      description: 'Discuss your favorite reads with fellow book lovers.',
+      preview: `
+        <div class="preview-section">
+          <div class="preview-label">This Month's Pick</div>
+          <div class="preview-content">
+            <strong>The Midnight Library</strong><br>
+            <span style="color: var(--text-secondary);">by Matt Haig</span>
+          </div>
+        </div>
+        <div class="preview-section">
+          <div class="preview-label">Discussion Topics</div>
+          <div class="preview-chat">
+            <div class="chat-bubble received">What would your "perfect life" look like?</div>
+            <div class="chat-bubble sent">I think the message is that there's no perfect life...</div>
+          </div>
+        </div>
+      `
+    }
+  };
+
+  experienceCards.forEach(card => {
+    card.addEventListener('click', () => {
+      const experience = card.dataset.experience;
+      const data = experienceData[experience];
+      
+      modalBody.innerHTML = `
+        <div class="modal-icon">${data.icon}</div>
+        <h2 class="modal-title">${data.title}</h2>
+        <p class="modal-description">${data.description}</p>
+        ${data.preview}
+        <button class="notify-btn">Notify Me When Available</button>
+      `;
+      
+      modal.classList.add('active');
+    });
+  });
+
+  closeModal.addEventListener('click', () => {
+    modal.classList.remove('active');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.remove('active');
+    }
+  });
 });
