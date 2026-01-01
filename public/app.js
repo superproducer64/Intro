@@ -145,15 +145,18 @@ document.addEventListener('DOMContentLoaded', () => {
       description: 'Play casual co-op games and bond over shared victories.',
       preview: `
         <div class="preview-section">
-          <div class="preview-label">Available Games</div>
+          <div class="preview-label">Popular 2-Player Games</div>
           <div class="preview-content">
-            <div style="margin-bottom: 8px;">🧩 Puzzle Quest Co-op</div>
-            <div style="margin-bottom: 8px;">🃏 Card Game Arena</div>
-            <div style="margin-bottom: 8px;">🎯 Trivia Challenge</div>
-            <div>🌍 Word Adventures</div>
+            <div style="margin-bottom: 8px;">🎱 8 Ball Pool</div>
+            <div style="margin-bottom: 8px;">♟️ Chess</div>
+            <div style="margin-bottom: 8px;">🏀 Basket Random</div>
+            <div>🔫 Rooftop Snipers</div>
           </div>
         </div>
-      `
+      `,
+      hasLaunch: true,
+      launchUrl: 'https://www.crazygames.com/t/2-player',
+      launchText: 'Start Gaming Session'
     },
     book: {
       icon: '📚',
@@ -183,8 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const experience = card.dataset.experience;
       const data = experienceData[experience];
       
+      const launchButtonText = data.launchText || 'Launch Watch Party';
+      const launchUrl = data.launchUrl || 'https://www.youtube.com';
       const launchButton = data.hasLaunch ? `
-        <button class="launch-btn" id="launchExperience">Launch Watch Party</button>
+        <button class="launch-btn" id="launchExperience" data-url="${launchUrl}">${launchButtonText}</button>
         <div class="hyperbeam-container" id="hyperbeamContainer" style="display: none;">
           <iframe id="hyperbeamFrame" allow="autoplay; fullscreen" allowfullscreen></iframe>
         </div>
@@ -245,15 +250,17 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const launchBtn = document.getElementById('launchExperience');
       if (launchBtn) {
+        const originalText = launchBtn.textContent;
         launchBtn.addEventListener('click', async () => {
           launchBtn.textContent = 'Starting...';
           launchBtn.disabled = true;
+          const targetUrl = launchBtn.dataset.url || 'https://www.youtube.com';
           
           try {
             const response = await fetch('/api/hyperbeam/create', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: 'https://www.youtube.com' })
+              body: JSON.stringify({ url: targetUrl })
             });
             
             const data = await response.json();
@@ -265,10 +272,10 @@ document.addEventListener('DOMContentLoaded', () => {
               container.style.display = 'block';
               launchBtn.style.display = 'none';
             } else {
-              launchBtn.textContent = 'Launch Watch Party';
+              launchBtn.textContent = originalText;
               launchBtn.disabled = false;
               
-              let errorMsg = 'Unable to start watch party. ';
+              let errorMsg = 'Unable to start session. ';
               if (data.error && data.error.includes('VM limit')) {
                 errorMsg += 'Too many active sessions. Please wait a few minutes and try again, or close other watch parties first.';
               } else if (data.error && data.error.includes('API key')) {
@@ -282,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
               showErrorMessage(errorMsg);
             }
           } catch (error) {
-            launchBtn.textContent = 'Launch Watch Party';
+            launchBtn.textContent = originalText;
             launchBtn.disabled = false;
             showErrorMessage('Connection error. Please check your internet and try again.');
           }
