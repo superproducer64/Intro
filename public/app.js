@@ -5,6 +5,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const navItems = document.querySelectorAll('.nav-item');
   const tabContents = document.querySelectorAll('.tab-content');
 
+  function showErrorMessage(message) {
+    let errorEl = document.getElementById('errorToast');
+    if (!errorEl) {
+      errorEl = document.createElement('div');
+      errorEl.id = 'errorToast';
+      errorEl.className = 'error-toast';
+      document.body.appendChild(errorEl);
+    }
+    errorEl.textContent = message;
+    errorEl.classList.add('show');
+    setTimeout(() => {
+      errorEl.classList.remove('show');
+    }, 5000);
+  }
+
   const profiles = [
     {
       name: 'Emma, 28',
@@ -241,8 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
               body: JSON.stringify({ url: 'https://www.youtube.com' })
             });
             
+            const data = await response.json();
+            
             if (response.ok) {
-              const data = await response.json();
               const container = document.getElementById('hyperbeamContainer');
               const iframe = document.getElementById('hyperbeamFrame');
               iframe.src = data.embed_url;
@@ -251,12 +267,24 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
               launchBtn.textContent = 'Launch Watch Party';
               launchBtn.disabled = false;
-              alert('Failed to start watch party. Please try again.');
+              
+              let errorMsg = 'Unable to start watch party. ';
+              if (data.error && data.error.includes('VM limit')) {
+                errorMsg += 'Too many active sessions. Please wait a few minutes and try again, or close other watch parties first.';
+              } else if (data.error && data.error.includes('API key')) {
+                errorMsg += 'Service configuration issue. Please contact support.';
+              } else if (data.error && data.error.includes('rate')) {
+                errorMsg += 'Too many requests. Please wait a moment and try again.';
+              } else {
+                errorMsg += data.error || 'Please try again later.';
+              }
+              
+              showErrorMessage(errorMsg);
             }
           } catch (error) {
             launchBtn.textContent = 'Launch Watch Party';
             launchBtn.disabled = false;
-            alert('Failed to start watch party. Please try again.');
+            showErrorMessage('Connection error. Please check your internet and try again.');
           }
         });
       }
