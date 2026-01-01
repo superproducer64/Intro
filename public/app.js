@@ -121,7 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="chat-bubble sent">Right? Wes Anderson is a genius</div>
           </div>
         </div>
-      `
+      `,
+      hasLaunch: true
     },
     gaming: {
       icon: '🎮',
@@ -167,11 +168,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const experience = card.dataset.experience;
       const data = experienceData[experience];
       
+      const launchButton = data.hasLaunch ? `
+        <button class="launch-btn" id="launchExperience">Launch Watch Party</button>
+        <div class="hyperbeam-container" id="hyperbeamContainer" style="display: none;">
+          <iframe id="hyperbeamFrame" allow="autoplay; fullscreen" allowfullscreen></iframe>
+        </div>
+      ` : '';
+      
       modalBody.innerHTML = `
         <div class="modal-icon">${data.icon}</div>
         <h2 class="modal-title">${data.title}</h2>
         <p class="modal-description">${data.description}</p>
         ${data.preview}
+        ${launchButton}
         <p class="notify-label">Notify Me When Available</p>
         <form class="signup-form" id="signupForm">
           <input type="text" name="name" placeholder="Your Name" required>
@@ -218,6 +227,39 @@ document.addEventListener('DOMContentLoaded', () => {
           alert('Signup failed. Please try again.');
         }
       });
+      
+      const launchBtn = document.getElementById('launchExperience');
+      if (launchBtn) {
+        launchBtn.addEventListener('click', async () => {
+          launchBtn.textContent = 'Starting...';
+          launchBtn.disabled = true;
+          
+          try {
+            const response = await fetch('/api/hyperbeam/create', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: 'https://www.youtube.com' })
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              const container = document.getElementById('hyperbeamContainer');
+              const iframe = document.getElementById('hyperbeamFrame');
+              iframe.src = data.embed_url;
+              container.style.display = 'block';
+              launchBtn.style.display = 'none';
+            } else {
+              launchBtn.textContent = 'Launch Watch Party';
+              launchBtn.disabled = false;
+              alert('Failed to start watch party. Please try again.');
+            }
+          } catch (error) {
+            launchBtn.textContent = 'Launch Watch Party';
+            launchBtn.disabled = false;
+            alert('Failed to start watch party. Please try again.');
+          }
+        });
+      }
     });
   });
 

@@ -35,6 +35,37 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
+app.post('/api/hyperbeam/create', async (req, res) => {
+  const { url } = req.body;
+  
+  if (!process.env.HYPERBEAM_API_KEY) {
+    return res.status(500).json({ error: 'Hyperbeam API key not configured' });
+  }
+  
+  try {
+    const response = await fetch('https://engine.hyperbeam.com/v0/vm', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.HYPERBEAM_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        start_url: url || 'https://www.youtube.com'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to create Hyperbeam session');
+    }
+    
+    const data = await response.json();
+    res.json({ embed_url: data.embed_url, session_id: data.session_id });
+  } catch (error) {
+    console.error('Hyperbeam error:', error);
+    res.status(500).json({ error: 'Failed to create watch session' });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Intro app running on http://0.0.0.0:${PORT}`);
 });
