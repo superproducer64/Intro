@@ -186,10 +186,37 @@ document.addEventListener('DOMContentLoaded', () => {
       const signupForm = document.getElementById('signupForm');
       const signupSuccess = document.getElementById('signupSuccess');
       
-      signupForm.addEventListener('submit', (e) => {
+      signupForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        signupForm.style.display = 'none';
-        signupSuccess.style.display = 'block';
+        const formData = new FormData(signupForm);
+        const submitBtn = signupForm.querySelector('button');
+        submitBtn.textContent = 'Signing up...';
+        submitBtn.disabled = true;
+        
+        try {
+          const response = await fetch('/api/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: formData.get('name'),
+              email: formData.get('email'),
+              experience: experience
+            })
+          });
+          
+          if (response.ok) {
+            signupForm.style.display = 'none';
+            signupSuccess.style.display = 'block';
+          } else {
+            submitBtn.textContent = 'Sign Up';
+            submitBtn.disabled = false;
+            alert('Signup failed. Please try again.');
+          }
+        } catch (error) {
+          submitBtn.textContent = 'Sign Up';
+          submitBtn.disabled = false;
+          alert('Signup failed. Please try again.');
+        }
       });
     });
   });
