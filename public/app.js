@@ -172,10 +172,25 @@ document.addEventListener('DOMContentLoaded', () => {
         <h2 class="modal-title">${data.title}</h2>
         <p class="modal-description">${data.description}</p>
         ${data.preview}
-        <button class="notify-btn">Notify Me When Available</button>
+        <p class="notify-label">Notify Me When Available</p>
+        <form class="signup-form" id="signupForm">
+          <input type="text" name="name" placeholder="Your Name" required>
+          <input type="email" name="email" placeholder="Your Email" required>
+          <button type="submit" class="notify-btn">Sign Up</button>
+        </form>
+        <p class="signup-success" id="signupSuccess" style="display: none;">Thanks! We'll notify you when this is available.</p>
       `;
       
       modal.classList.add('active');
+      
+      const signupForm = document.getElementById('signupForm');
+      const signupSuccess = document.getElementById('signupSuccess');
+      
+      signupForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        signupForm.style.display = 'none';
+        signupSuccess.style.display = 'block';
+      });
     });
   });
 

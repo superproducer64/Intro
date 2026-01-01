@@ -515,6 +515,46 @@ body {
   background: var(--primary-light);
 }
 
+.notify-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.signup-form input {
+  width: 100%;
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.signup-form input::placeholder {
+  color: var(--text-secondary);
+}
+
+.signup-form input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.signup-success {
+  color: var(--success);
+  font-size: 14px;
+  padding: 16px;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 8px;
+}
+
 @media (max-width: 480px) {
   .app-container {
     max-width: 100%;
