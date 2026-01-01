@@ -54,11 +54,13 @@ app.post('/api/hyperbeam/create', async (req, res) => {
       })
     });
     
+    const data = await response.json();
+    
     if (!response.ok) {
-      throw new Error('Failed to create Hyperbeam session');
+      console.error('Hyperbeam API error:', response.status, data);
+      return res.status(response.status).json({ error: data.message || 'Failed to create session' });
     }
     
-    const data = await response.json();
     res.json({ embed_url: data.embed_url, session_id: data.session_id });
   } catch (error) {
     console.error('Hyperbeam error:', error);
