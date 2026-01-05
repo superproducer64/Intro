@@ -628,152 +628,87 @@ body {
 
 .zen-zone {
   margin-top: 24px;
-  padding: 20px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(99, 102, 241, 0.1));
+  position: relative;
+  height: 180px;
   border-radius: 20px;
-  border: 1px solid rgba(124, 58, 237, 0.2);
+  overflow: hidden;
 }
 
-.zen-header {
-  text-align: center;
-  margin-bottom: 16px;
+.zen-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    #1a1a2e 0%,
+    #2d1b4e 25%,
+    #1e3a5f 50%,
+    #2d1b4e 75%,
+    #1a1a2e 100%
+  );
+  background-size: 400% 400%;
+  animation: gradientFlow 12s ease-in-out infinite;
+}
+
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.zen-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .zen-title {
-  display: block;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
-  color: var(--primary-light);
-  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 1px;
 }
 
 .zen-subtitle {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.zen-canvas {
-  position: relative;
-  height: 160px;
+.zen-sound-btn {
+  margin-top: 12px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-}
-
-.zen-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(40px);
-  opacity: 0.4;
-  animation: float 8s ease-in-out infinite;
-}
-
-.orb-1 {
-  width: 100px;
-  height: 100px;
-  background: #7c3aed;
-  top: 10%;
-  left: 10%;
-  animation-delay: 0s;
-}
-
-.orb-2 {
-  width: 80px;
-  height: 80px;
-  background: #6366f1;
-  bottom: 10%;
-  right: 15%;
-  animation-delay: -3s;
-}
-
-.orb-3 {
-  width: 60px;
-  height: 60px;
-  background: #a78bfa;
-  top: 50%;
-  left: 60%;
-  animation-delay: -5s;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(10px, -15px) scale(1.1);
-  }
-  66% {
-    transform: translate(-10px, 10px) scale(0.95);
-  }
-}
-
-.breathing-circle {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.6) 0%, rgba(124, 58, 237, 0.1) 70%);
-  border: 2px solid rgba(167, 139, 250, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  animation: breathe 8s ease-in-out infinite;
-}
-
-.breathing-circle.paused {
-  animation-play-state: paused;
-}
-
-@keyframes breathe {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
-  }
-  50% {
-    transform: scale(1.3);
-    box-shadow: 0 0 40px rgba(124, 58, 237, 0.5);
-  }
-}
-
-.breath-text {
-  font-size: 11px;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  opacity: 0.9;
-}
-
-.zen-controls {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.zen-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(124, 58, 237, 0.3);
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--text-primary);
-  font-size: 18px;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.zen-btn:hover {
-  background: rgba(124, 58, 237, 0.2);
-  border-color: rgba(124, 58, 237, 0.5);
+.zen-sound-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
-.zen-btn.active {
+.zen-sound-btn.active {
   background: rgba(124, 58, 237, 0.3);
   border-color: var(--primary-light);
+}
+
+.sound-icon {
+  font-size: 16px;
 }

@@ -309,41 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Zen Zone functionality
-  const breathingCircle = document.getElementById('breathingCircle');
-  const breathText = document.getElementById('breathText');
   const zenSoundBtn = document.getElementById('zenSoundBtn');
-  const zenBreathBtn = document.getElementById('zenBreathBtn');
-
-  // Breathing text animation
-  const breathingPhrases = ['Breathe In', 'Hold', 'Breathe Out', 'Hold'];
-  let breathIndex = 0;
-  let breathInterval;
-
-  function startBreathingGuide() {
-    breathText.textContent = 'Breathe';
-    breathInterval = setInterval(() => {
-      breathText.textContent = breathingPhrases[breathIndex];
-      breathIndex = (breathIndex + 1) % breathingPhrases.length;
-    }, 2000);
-  }
-
-  function stopBreathingGuide() {
-    clearInterval(breathInterval);
-    breathText.textContent = 'Paused';
-  }
-
-  // Start breathing by default
-  startBreathingGuide();
-
-  zenBreathBtn.addEventListener('click', () => {
-    zenBreathBtn.classList.toggle('active');
-    breathingCircle.classList.toggle('paused');
-    if (zenBreathBtn.classList.contains('active')) {
-      startBreathingGuide();
-    } else {
-      stopBreathingGuide();
-    }
-  });
 
   // Ambient sound (using Web Audio API for a gentle tone)
   let audioContext = null;
@@ -389,18 +355,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  zenSoundBtn.addEventListener('click', () => {
-    isPlaying = !isPlaying;
-    const soundIcon = zenSoundBtn.querySelector('.sound-icon');
-    
-    if (isPlaying) {
-      createAmbientSound();
-      soundIcon.textContent = '🔊';
-      zenSoundBtn.classList.add('active');
-    } else {
-      stopAmbientSound();
-      soundIcon.textContent = '🔇';
-      zenSoundBtn.classList.remove('active');
-    }
-  });
+  if (zenSoundBtn) {
+    zenSoundBtn.addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      const soundIcon = zenSoundBtn.querySelector('.sound-icon');
+      const soundLabel = zenSoundBtn.querySelector('.sound-label');
+      
+      if (isPlaying) {
+        createAmbientSound();
+        soundIcon.textContent = '🔊';
+        if (soundLabel) soundLabel.textContent = 'Sound On';
+        zenSoundBtn.classList.add('active');
+      } else {
+        stopAmbientSound();
+        soundIcon.textContent = '🔇';
+        if (soundLabel) soundLabel.textContent = 'Ambient Sound';
+        zenSoundBtn.classList.remove('active');
+      }
+    });
+  }
 });
