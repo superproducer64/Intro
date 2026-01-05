@@ -307,4 +307,100 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.classList.remove('active');
     }
   });
+
+  // Zen Zone functionality
+  const breathingCircle = document.getElementById('breathingCircle');
+  const breathText = document.getElementById('breathText');
+  const zenSoundBtn = document.getElementById('zenSoundBtn');
+  const zenBreathBtn = document.getElementById('zenBreathBtn');
+
+  // Breathing text animation
+  const breathingPhrases = ['Breathe In', 'Hold', 'Breathe Out', 'Hold'];
+  let breathIndex = 0;
+  let breathInterval;
+
+  function startBreathingGuide() {
+    breathText.textContent = 'Breathe';
+    breathInterval = setInterval(() => {
+      breathText.textContent = breathingPhrases[breathIndex];
+      breathIndex = (breathIndex + 1) % breathingPhrases.length;
+    }, 2000);
+  }
+
+  function stopBreathingGuide() {
+    clearInterval(breathInterval);
+    breathText.textContent = 'Paused';
+  }
+
+  // Start breathing by default
+  startBreathingGuide();
+
+  zenBreathBtn.addEventListener('click', () => {
+    zenBreathBtn.classList.toggle('active');
+    breathingCircle.classList.toggle('paused');
+    if (zenBreathBtn.classList.contains('active')) {
+      startBreathingGuide();
+    } else {
+      stopBreathingGuide();
+    }
+  });
+
+  // Ambient sound (using Web Audio API for a gentle tone)
+  let audioContext = null;
+  let oscillator = null;
+  let gainNode = null;
+  let isPlaying = false;
+
+  function createAmbientSound() {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    oscillator = audioContext.createOscillator();
+    gainNode = audioContext.createGain();
+    
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(174.61, audioContext.currentTime); // F3 - soothing frequency
+    
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + 2);
+    
+    // Add slight frequency modulation for warmth
+    const lfo = audioContext.createOscillator();
+    const lfoGain = audioContext.createGain();
+    lfo.frequency.setValueAtTime(0.1, audioContext.currentTime);
+    lfoGain.gain.setValueAtTime(2, audioContext.currentTime);
+    lfo.connect(lfoGain);
+    lfoGain.connect(oscillator.frequency);
+    lfo.start();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start();
+  }
+
+  function stopAmbientSound() {
+    if (gainNode && oscillator) {
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1);
+      setTimeout(() => {
+        oscillator.stop();
+        oscillator = null;
+      }, 1000);
+    }
+  }
+
+  zenSoundBtn.addEventListener('click', () => {
+    isPlaying = !isPlaying;
+    const soundIcon = zenSoundBtn.querySelector('.sound-icon');
+    
+    if (isPlaying) {
+      createAmbientSound();
+      soundIcon.textContent = '🔊';
+      zenSoundBtn.classList.add('active');
+    } else {
+      stopAmbientSound();
+      soundIcon.textContent = '🔇';
+      zenSoundBtn.classList.remove('active');
+    }
+  });
 });
