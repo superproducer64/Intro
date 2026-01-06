@@ -1,13 +1,49 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
 const PORT = 5000;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const adminTokens = new Set();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
+
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS profiles (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      bio TEXT,
+      sort_order INT DEFAULT 0
+    )
+  `);
+  
+  const result = await pool.query('SELECT COUNT(*) FROM profiles');
+  if (parseInt(result.rows[0].count) === 0) {
+    await pool.query(`
+      INSERT INTO profiles (name, bio, sort_order) VALUES
+      ('Emma, 28', 'Bookworm and coffee enthusiast. Looking for someone to share quiet evenings and deep conversations.', 1),
+      ('Sophia, 25', 'Gamer and nature lover. Introvert who enjoys long walks and cozy nights in.', 2),
+      ('Olivia, 30', 'Artist and homebody. Love creating art, watching documentaries, and cooking new recipes.', 3),
+      ('Isabella, 27', 'Music lover and aspiring writer. Seeking genuine connection over loud parties.', 4),
+      ('Mia, 29', 'Tech enthusiast and plant parent. Prefer board games nights to club scenes.', 5)
+    `);
+  }
+}
+
+initDB().catch(console.error);
+
+function verifyAdmin(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token || !adminTokens.has(token)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -32,6 +68,64 @@ app.post('/api/signup', async (req, res) => {
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ error: 'Failed to save signup' });
+  }
+});
+
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (!ADMIN_PASSWORD) {
+    return res.status(503).json({ error: 'Admin not configured' });
+  }
+  if (password === ADMIN_PASSWORD) {
+    const token = crypto.randomBytes(32).toString('hex');
+    adminTokens.add(token);
+    res.json({ token });
+  } else {
+    res.status(401).json({ error: 'Invalid password' });
+  }
+});
+
+app.get('/api/admin/signups', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM signups ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch signups' });
+  }
+});
+
+app.get('/api/admin/profiles', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM profiles ORDER BY sort_order');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch profiles' });
+  }
+});
+
+app.post('/api/admin/profiles', verifyAdmin, async (req, res) => {
+  const profiles = req.body;
+  try {
+    await pool.query('DELETE FROM profiles');
+    for (let i = 0; i < profiles.length; i++) {
+      await pool.query(
+        'INSERT INTO profiles (name, bio, sort_order) VALUES ($1, $2, $3)',
+        [profiles[i].name, profiles[i].bio, i + 1]
+      );
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Profile save error:', error);
+    res.status(500).json({ error: 'Failed to save profiles' });
+  }
+});
+
+app.get('/api/profiles', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT name, bio FROM profiles ORDER BY sort_order');
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch profiles' });
   }
 });
 

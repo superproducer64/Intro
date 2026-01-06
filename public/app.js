@@ -20,32 +20,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 5000);
   }
 
-  const profiles = [
-    {
-      name: 'Emma, 28',
-      bio: 'Bookworm and coffee enthusiast. Looking for someone to share quiet evenings and deep conversations.'
-    },
-    {
-      name: 'Sophia, 25',
-      bio: 'Gamer and nature lover. Introvert who enjoys long walks and cozy nights in.'
-    },
-    {
-      name: 'Olivia, 30',
-      bio: 'Artist and homebody. Love creating art, watching documentaries, and cooking new recipes.'
-    },
-    {
-      name: 'Isabella, 27',
-      bio: 'Music lover and aspiring writer. Seeking genuine connection over loud parties.'
-    },
-    {
-      name: 'Mia, 29',
-      bio: 'Tech enthusiast and plant parent. Prefer board games nights to club scenes.'
-    }
-  ];
-
+  let profiles = [];
   let currentIndex = 0;
 
+  async function loadProfiles() {
+    try {
+      const res = await fetch('/api/profiles');
+      if (res.ok) {
+        profiles = await res.json();
+        if (profiles.length > 0) updateCard();
+      }
+    } catch (e) {
+      console.error('Failed to load profiles');
+    }
+  }
+
+  loadProfiles();
+
   function updateCard() {
+    if (profiles.length === 0) return;
     if (currentIndex >= profiles.length) {
       currentIndex = 0;
     }
