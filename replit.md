@@ -31,7 +31,8 @@ node server.js
 
 ## Features
 - Animated splash screen with INTRO logo
-- User signup/login with secure password hashing
+- Multi-step signup questionnaire (profile type, basic info, photo, bio, interests, account, guidelines)
+- User login with secure password hashing (bcrypt)
 - Profile card swiping interface
 - Pass/Like buttons with animations
 - Bottom navigation for Discover, Matches, Experiences, Profile tabs
