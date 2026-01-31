@@ -2,7 +2,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const AUTH_KEY = 'intro_user_auth';
   const introScreen = document.getElementById('introScreen');
   const authScreen = document.getElementById('authScreen');
+  const questionnaireScreen = document.getElementById('questionnaireScreen');
   const mainApp = document.getElementById('mainApp');
+  
+  // Questionnaire state
+  let currentPage = 1;
+  const totalPages = 8;
+  const selectedInterests = new Set();
   
   // Check if user is already logged in
   const savedAuth = localStorage.getItem(AUTH_KEY);
@@ -25,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auth tabs
   const authTabs = document.querySelectorAll('.auth-tab');
   const loginForm = document.getElementById('loginForm');
-  const signupForm = document.getElementById('signupForm');
+  const signupPrompt = document.getElementById('signupPrompt');
 
   authTabs.forEach(tab => {
     tab.addEventListener('click', () => {
@@ -34,13 +40,25 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (tab.dataset.auth === 'login') {
         loginForm.classList.remove('hidden');
-        signupForm.classList.add('hidden');
+        signupPrompt.classList.add('hidden');
       } else {
         loginForm.classList.add('hidden');
-        signupForm.classList.remove('hidden');
+        signupPrompt.classList.remove('hidden');
       }
     });
   });
+
+  // Start signup questionnaire
+  const startSignupBtn = document.getElementById('startSignupBtn');
+  if (startSignupBtn) {
+    startSignupBtn.addEventListener('click', () => {
+      authScreen.classList.remove('active');
+      questionnaireScreen.classList.add('active');
+      currentPage = 1;
+      updateProgress();
+      showPage(1);
+    });
+  }
 
   // Login handler
   loginForm.addEventListener('submit', async (e) => {
@@ -79,48 +97,275 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.textContent = 'Sign In';
   });
 
-  // Signup handler
-  signupForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('signupName').value;
-    const age = document.getElementById('signupAge').value;
-    const email = document.getElementById('signupEmail').value;
-    const password = document.getElementById('signupPassword').value;
-    const bio = document.getElementById('signupBio').value;
-    const errorEl = document.getElementById('signupError');
-    const successEl = document.getElementById('signupSuccess');
-    const btn = signupForm.querySelector('button');
+  // Questionnaire Functions
+  function updateProgress() {
+    const progress = (currentPage / totalPages) * 100;
+    document.getElementById('progressFill').style.width = progress + '%';
+  }
+
+  function showPage(pageNum) {
+    document.querySelectorAll('.q-page').forEach(p => p.classList.remove('active'));
+    const page = document.querySelector(`.q-page[data-page="${pageNum}"]`);
+    if (page) page.classList.add('active');
     
+    // Hide all errors
+    document.querySelectorAll('.q-error').forEach(e => e.classList.remove('show'));
+  }
+
+  window.nextPage = function() {
+    // Validate current page
+    if (!validatePage(currentPage)) return;
+    
+    currentPage++;
+    if (currentPage > totalPages) currentPage = totalPages;
+    updateProgress();
+    showPage(currentPage);
+  };
+
+  window.prevPage = function() {
+    currentPage--;
+    if (currentPage < 1) currentPage = 1;
+    updateProgress();
+    showPage(currentPage);
+  };
+
+  window.cancelQuestionnaire = function() {
+    questionnaireScreen.classList.remove('active');
+    authScreen.classList.add('active');
+    // Reset to login tab
+    authTabs[0].click();
+  };
+
+  function validatePage(page) {
+    switch(page) {
+      case 1:
+        const profileType = document.querySelector('input[name="profileType"]:checked');
+        if (!profileType) {
+          document.getElementById('page1Error').classList.add('show');
+          return false;
+        }
+        return true;
+      case 2:
+        const name = document.getElementById('qName').value.trim();
+        const age = document.getElementById('qAge').value;
+        const location = document.getElementById('qLocation').value.trim();
+        const personality = document.querySelector('input[name="personality"]:checked');
+        if (!name || !age || !location || !personality) {
+          document.getElementById('page2Error').classList.add('show');
+          return false;
+        }
+        if (parseInt(age) < 18 || parseInt(age) > 120) {
+          document.getElementById('page2Error').textContent = 'Age must be between 18 and 120';
+          document.getElementById('page2Error').classList.add('show');
+          return false;
+        }
+        return true;
+      case 3:
+        // Photo is optional
+        return true;
+      case 4:
+        const bio = document.getElementById('qBio').value.trim();
+        const lookingFor = document.querySelector('input[name="lookingFor"]:checked');
+        if (!bio || !lookingFor) {
+          document.getElementById('page4Error').classList.add('show');
+          return false;
+        }
+        return true;
+      case 5:
+        if (selectedInterests.size < 3) {
+          document.getElementById('page5Error').classList.add('show');
+          return false;
+        }
+        return true;
+      case 6:
+        const email = document.getElementById('qEmail').value.trim();
+        const password = document.getElementById('qPassword').value;
+        const passwordConfirm = document.getElementById('qPasswordConfirm').value;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        
+        if (!email || !emailRegex.test(email)) {
+          document.getElementById('page6Error').textContent = 'Please enter a valid email address';
+          document.getElementById('page6Error').classList.add('show');
+          return false;
+        }
+        if (password.length < 6) {
+          document.getElementById('page6Error').textContent = 'Password must be at least 6 characters';
+          document.getElementById('page6Error').classList.add('show');
+          return false;
+        }
+        if (password !== passwordConfirm) {
+          document.getElementById('page6Error').textContent = 'Passwords do not match';
+          document.getElementById('page6Error').classList.add('show');
+          return false;
+        }
+        return true;
+      case 7:
+        const guidelines = document.getElementById('agreeGuidelines').checked;
+        const privacy = document.getElementById('agreePrivacy').checked;
+        if (!guidelines || !privacy) {
+          document.getElementById('page7Error').classList.add('show');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  window.toggleTag = function(el) {
+    const interest = el.textContent.trim();
+    if (el.classList.contains('selected')) {
+      el.classList.remove('selected');
+      selectedInterests.delete(interest);
+    } else {
+      el.classList.add('selected');
+      selectedInterests.add(interest);
+    }
+    // Hide error if we have enough interests
+    if (selectedInterests.size >= 3) {
+      document.getElementById('page5Error').classList.remove('show');
+    }
+  };
+
+  window.selectRadioOption = function(el, name) {
+    // Remove selected from siblings
+    el.parentElement.querySelectorAll('.radio-option').forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
+    el.querySelector('input[type="radio"]').checked = true;
+  };
+
+  // Photo upload handling
+  const photoInput = document.getElementById('photoInput');
+  if (photoInput) {
+    photoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById('photoPreview').src = e.target.result;
+          document.getElementById('uploadZone').style.display = 'none';
+          document.getElementById('previewContainer').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  // Bio character count
+  const bioTextarea = document.getElementById('qBio');
+  if (bioTextarea) {
+    bioTextarea.addEventListener('input', () => {
+      const count = bioTextarea.value.length;
+      const countEl = document.getElementById('charCount');
+      countEl.textContent = count;
+      if (count > 450) {
+        countEl.parentElement.classList.add('warning');
+      } else {
+        countEl.parentElement.classList.remove('warning');
+      }
+    });
+  }
+
+  window.submitQuestionnaire = async function() {
+    if (!validatePage(7)) return;
+    
+    const btn = document.getElementById('createProfileBtn');
     btn.disabled = true;
-    btn.textContent = 'Creating account...';
-    errorEl.textContent = '';
-    successEl.classList.add('hidden');
+    btn.textContent = 'Creating...';
+    
+    // Gather all data
+    const profileData = {
+      name: document.getElementById('qName').value.trim(),
+      age: parseInt(document.getElementById('qAge').value),
+      email: document.getElementById('qEmail').value.trim(),
+      password: document.getElementById('qPassword').value,
+      bio: document.getElementById('qBio').value.trim(),
+      location: document.getElementById('qLocation').value.trim(),
+      profileType: document.querySelector('input[name="profileType"]:checked')?.value,
+      personality: document.querySelector('input[name="personality"]:checked')?.value,
+      lookingFor: document.querySelector('input[name="lookingFor"]:checked')?.value,
+      interests: Array.from(selectedInterests)
+    };
     
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, age: parseInt(age), email, password, bio })
+        body: JSON.stringify(profileData)
       });
       
       const data = await res.json();
       
       if (res.ok) {
-        successEl.classList.remove('hidden');
-        signupForm.reset();
-        setTimeout(() => {
-          authTabs[0].click();
-        }, 1500);
+        // Show success page
+        currentPage = 8;
+        updateProgress();
+        showPage(8);
       } else {
-        errorEl.textContent = data.error || 'Registration failed';
+        btn.disabled = false;
+        btn.textContent = 'Create My Profile';
+        document.getElementById('page7Error').textContent = data.error || 'Registration failed. Please try again.';
+        document.getElementById('page7Error').classList.add('show');
       }
     } catch (err) {
-      errorEl.textContent = 'Connection error. Please try again.';
+      btn.disabled = false;
+      btn.textContent = 'Create My Profile';
+      document.getElementById('page7Error').textContent = 'Connection error. Please try again.';
+      document.getElementById('page7Error').classList.add('show');
+    }
+  };
+
+  window.startApp = async function() {
+    const btn = document.querySelector('.success-page .q-btn-primary');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
     }
     
-    btn.disabled = false;
-    btn.textContent = 'Create Account';
-  });
+    const email = document.getElementById('qEmail').value.trim();
+    const password = document.getElementById('qPassword').value;
+    
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.token) {
+        localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+        questionnaireScreen.classList.remove('active');
+        mainApp.style.display = 'flex';
+        initMainApp();
+      } else {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Start Connecting';
+        }
+        showStartError('Unable to sign in. Please try again or go to login.');
+      }
+    } catch (err) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Start Connecting';
+      }
+      showStartError('Connection error. Please check your internet and try again.');
+    }
+  };
+  
+  function showStartError(message) {
+    let errorEl = document.querySelector('.success-page .start-error');
+    if (!errorEl) {
+      errorEl = document.createElement('p');
+      errorEl.className = 'start-error';
+      errorEl.style.cssText = 'color: #ef4444; font-size: 14px; margin-top: 12px; text-align: center;';
+      const successPage = document.querySelector('.success-page');
+      if (successPage) successPage.appendChild(errorEl);
+    }
+    errorEl.textContent = message;
+  }
 
   function initMainApp() {
     const currentCard = document.getElementById('currentCard');
