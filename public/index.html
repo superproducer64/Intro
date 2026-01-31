@@ -446,22 +446,22 @@
       <!-- Profile Tab -->
       <div class="tab-content active" id="profile-tab">
         <div class="profile-section">
-          <div class="profile-avatar-large initials">KB</div>
+          <div class="profile-avatar-large initials" id="profileInitials"></div>
           <h2>Your Profile</h2>
           <div class="profile-form">
             <div class="form-group">
               <label>Name</label>
-              <input type="text" placeholder="Your name" value="Kevin">
+              <input type="text" id="profileName" placeholder="Your name">
             </div>
             <div class="form-group">
               <label>Age</label>
-              <input type="number" placeholder="Your age" value="38">
+              <input type="number" id="profileAge" placeholder="Your age">
             </div>
             <div class="form-group">
               <label>Bio</label>
-              <textarea placeholder="Tell us about yourself">Filmmaker, screenwriter and avid movie buff.</textarea>
+              <textarea id="profileBio" placeholder="Tell us about yourself"></textarea>
             </div>
-            <button class="save-btn">Save Profile</button>
+            <button class="save-btn" id="saveProfileBtn">Save Profile</button>
           </div>
         </div>
       </div>

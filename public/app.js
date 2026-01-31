@@ -670,6 +670,27 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     
+    // Load current user's profile data
+    function loadUserProfile() {
+      const authData = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+      const user = authData.user || {};
+      
+      const initialsEl = document.getElementById('profileInitials');
+      const nameEl = document.getElementById('profileName');
+      const ageEl = document.getElementById('profileAge');
+      const bioEl = document.getElementById('profileBio');
+      
+      if (user.name) {
+        const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        if (initialsEl) initialsEl.textContent = initials;
+        if (nameEl) nameEl.value = user.name;
+      }
+      if (user.age && ageEl) ageEl.value = user.age;
+      if (user.bio && bioEl) bioEl.value = user.bio;
+    }
+    
+    loadUserProfile();
+    
     // Default to discover tab to show potential matches
     switchTab('discover');
   } // End initMainApp
