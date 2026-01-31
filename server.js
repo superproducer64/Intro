@@ -3,11 +3,18 @@ const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
+const http = require('http');
+const WebSocket = require('ws');
 
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
 const PORT = 5000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const adminTokens = new Set();
+const connectedClients = new Map();
+const userTokens = new Map();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
@@ -29,9 +36,20 @@ async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profiles (
       id SERIAL PRIMARY KEY,
+      user_id INT REFERENCES users(id),
       name VARCHAR(100) NOT NULL,
       bio TEXT,
       sort_order INT DEFAULT 0
+    )
+  `);
+  
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      sender_id INT NOT NULL,
+      receiver_id INT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
   
@@ -112,9 +130,17 @@ app.post('/api/auth/register', async (req, res) => {
     
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    await pool.query(
-      'INSERT INTO users (name, email, password, age, bio) VALUES ($1, $2, $3, $4, $5)',
+    const userResult = await pool.query(
+      'INSERT INTO users (name, email, password, age, bio) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [name.trim(), email.toLowerCase(), hashedPassword, age || null, bio || '']
+    );
+    
+    const userId = userResult.rows[0].id;
+    const profileName = age ? `${name.trim()}, ${age}` : name.trim();
+    
+    await pool.query(
+      'INSERT INTO profiles (user_id, name, bio, sort_order) VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM profiles))',
+      [userId, profileName, bio || '']
     );
     
     res.json({ success: true });
@@ -149,6 +175,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
     
     const token = crypto.randomBytes(32).toString('hex');
+    userTokens.set(token, user.id);
     
     delete user.password;
     res.json({ token, user });
@@ -209,7 +236,17 @@ app.post('/api/admin/profiles', verifyAdmin, async (req, res) => {
 
 app.get('/api/profiles', async (req, res) => {
   try {
-    const result = await pool.query('SELECT name, bio FROM profiles ORDER BY sort_order');
+    const userId = req.query.exclude_user_id;
+    let query = 'SELECT id, user_id, name, bio FROM profiles';
+    let params = [];
+    
+    if (userId) {
+      query += ' WHERE user_id IS NULL OR user_id != $1';
+      params.push(userId);
+    }
+    
+    query += ' ORDER BY sort_order';
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch profiles' });
@@ -249,6 +286,100 @@ app.post('/api/hyperbeam/create', async (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+// WebSocket connection handler
+wss.on('connection', (ws) => {
+  let userId = null;
+  let isAuthenticated = false;
+  
+  ws.on('message', async (data) => {
+    try {
+      const message = JSON.parse(data);
+      
+      if (message.type === 'auth') {
+        const token = message.token;
+        const tokenUserId = userTokens.get(token);
+        
+        if (tokenUserId) {
+          userId = tokenUserId;
+          isAuthenticated = true;
+          connectedClients.set(userId, ws);
+          ws.send(JSON.stringify({ type: 'auth_success' }));
+        } else {
+          ws.send(JSON.stringify({ type: 'auth_failed', error: 'Invalid token' }));
+        }
+      }
+      
+      if (message.type === 'message' && isAuthenticated && userId) {
+        const { receiverId, text } = message;
+        
+        // Save to database
+        const result = await pool.query(
+          'INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3) RETURNING id, created_at',
+          [userId, receiverId, text]
+        );
+        
+        const savedMessage = {
+          id: result.rows[0].id,
+          sender_id: userId,
+          receiver_id: receiverId,
+          message: text,
+          created_at: result.rows[0].created_at
+        };
+        
+        // Send to sender
+        ws.send(JSON.stringify({ type: 'message', data: savedMessage }));
+        
+        // Send to receiver if online
+        const receiverWs = connectedClients.get(parseInt(receiverId));
+        if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+          receiverWs.send(JSON.stringify({ type: 'message', data: savedMessage }));
+        }
+      }
+    } catch (err) {
+      console.error('WebSocket message error:', err);
+    }
+  });
+  
+  ws.on('close', () => {
+    if (userId) {
+      connectedClients.delete(userId);
+    }
+  });
+});
+
+// Get messages between two users
+app.get('/api/messages/:matchUserId', async (req, res) => {
+  const { matchUserId } = req.params;
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const userId = userTokens.get(token);
+  if (!userId) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  
+  if (!matchUserId) {
+    return res.status(400).json({ error: 'Missing match user ID' });
+  }
+  
+  try {
+    const result = await pool.query(
+      `SELECT * FROM messages 
+       WHERE (sender_id = $1 AND receiver_id = $2) 
+          OR (sender_id = $2 AND receiver_id = $1)
+       ORDER BY created_at ASC`,
+      [userId, matchUserId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Messages fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+});
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Intro app running on http://0.0.0.0:${PORT}`);
 });

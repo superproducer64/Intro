@@ -6,8 +6,9 @@ A modern dating platform for introverts and homebodies. This web application all
 ## Project Architecture
 - **Frontend**: Static HTML/CSS/JavaScript served by Express.js
 - **Backend**: Node.js with Express.js
-- **Database**: PostgreSQL (users, profiles, signups tables)
-- **Auth**: bcryptjs for password hashing, localStorage sessions
+- **Database**: PostgreSQL (users, profiles, signups, messages tables)
+- **Auth**: bcryptjs for password hashing, token-based sessions
+- **Real-time**: WebSocket for live messaging
 - **Port**: 5000 (frontend server)
 
 ## Directory Structure
@@ -33,8 +34,10 @@ node server.js
 - Animated splash screen with INTRO logo
 - Multi-step signup questionnaire (profile type, basic info, photo, bio, interests, account, guidelines)
 - User login with secure password hashing (bcrypt)
-- Profile card swiping interface
-- Pass/Like buttons with animations
+- Profile card swiping interface with like/pass
+- Matches list with real-time messaging
+- WebSocket-powered live chat between matched users
+- New signups automatically become swipeable profiles
 - Bottom navigation for Discover, Matches, Experiences, Profile tabs
 - Virtual experiences: Movie Night & Gaming (Hyperbeam streaming)
 - Admin console at /admin.html for managing profiles and signups
@@ -42,14 +45,19 @@ node server.js
 - Mobile-responsive design
 
 ## API Endpoints
-- POST /api/auth/register - User registration
-- POST /api/auth/login - User login
-- GET /api/profiles - Get swipeable profiles
+- POST /api/auth/register - User registration (also creates profile)
+- POST /api/auth/login - User login (returns auth token)
+- GET /api/profiles - Get swipeable profiles (excludes current user)
+- GET /api/messages/:matchUserId - Get chat messages (requires auth)
+- WebSocket - Real-time messaging with token auth
 - POST /api/signup - Experience waitlist signup
 - POST /api/hyperbeam/create - Create streaming session
 - Admin endpoints (requires ADMIN_PASSWORD)
 
 ## Recent Changes
+- January 2026: Added real-time messaging with WebSocket support
+- January 2026: New signups now automatically appear as swipeable profiles
+- January 2026: Messages stored in database for persistence
 - January 2026: Added animated splash screen and user authentication
 - January 2026: Added Gaming experience with CrazyGames integration
 - January 2026: Added admin console for managing app content

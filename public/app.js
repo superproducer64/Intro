@@ -394,7 +394,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadProfiles() {
       try {
-        const res = await fetch('/api/profiles');
+        const authData = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+        const userId = authData.user?.id;
+        let url = '/api/profiles';
+        if (userId) {
+          url += `?exclude_user_id=${userId}`;
+        }
+        const res = await fetch(url);
         if (res.ok) {
           profiles = await res.json();
           if (profiles.length > 0) updateCard();
@@ -430,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!matches.find(m => m.id === profile.id)) {
       matches.push({
         id: profile.id,
+        user_id: profile.user_id,
         name: profile.name,
         bio: profile.bio,
         time: Date.now()
@@ -451,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     matchesList.innerHTML = matches.map(match => `
-      <div class="match-item" data-match-id="${match.id}" data-match-name="${match.name}">
+      <div class="match-item" data-match-id="${match.id}" data-match-name="${match.name}" data-match-user-id="${match.user_id || match.id}">
         <div class="match-avatar">${match.name.charAt(0)}</div>
         <div class="match-info">
           <h3>${match.name}</h3>
@@ -474,7 +481,8 @@ document.addEventListener('DOMContentLoaded', () => {
       item.addEventListener('click', () => {
         const matchId = item.dataset.matchId;
         const matchName = item.dataset.matchName;
-        if (openChatFn) openChatFn(matchId, matchName);
+        const matchUserId = item.dataset.matchUserId;
+        if (openChatFn) openChatFn(matchId, matchName, matchUserId);
       });
     });
   }
@@ -765,33 +773,83 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
     
-    // Chat functionality
+    // Chat functionality with WebSocket
     const chatModal = document.getElementById('chatModal');
     const chatBack = document.getElementById('chatBack');
     const chatTitle = document.getElementById('chatTitle');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
-    const matchItems = document.querySelectorAll('.match-item');
     
     let currentMatchId = null;
     let currentMatchName = null;
-    const MESSAGES_KEY = 'intro_messages';
+    let currentMatchUserId = null;
+    let chatMessagesList = [];
+    let ws = null;
     
-    function getMessages() {
-      return JSON.parse(localStorage.getItem(MESSAGES_KEY) || '{}');
+    const authData = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
+    const currentUserId = authData.user?.id;
+    
+    const authToken = authData.token;
+    
+    // Initialize WebSocket connection
+    function initWebSocket() {
+      if (!currentUserId || !authToken) return;
+      
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}`);
+      
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'auth', token: authToken }));
+      };
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'message') {
+          const msg = data.data;
+          // Add to messages if it's for current chat
+          if (chatModal.classList.contains('active') && 
+              ((msg.sender_id == currentUserId && msg.receiver_id == currentMatchUserId) ||
+               (msg.sender_id == currentMatchUserId && msg.receiver_id == currentUserId))) {
+            chatMessagesList.push(msg);
+            renderMessages();
+          }
+        }
+      };
+      
+      ws.onclose = () => {
+        setTimeout(initWebSocket, 3000);
+      };
     }
     
-    function saveMessages(messages) {
-      localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
+    initWebSocket();
+    
+    async function loadChatMessages(matchUserId) {
+      if (!currentUserId || !authToken) return;
+      try {
+        const res = await fetch(`/api/messages/${matchUserId}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        if (res.ok) {
+          chatMessagesList = await res.json();
+          renderMessages();
+        }
+      } catch (e) {
+        console.error('Failed to load messages');
+      }
     }
     
-    function openChat(matchId, matchName) {
+    function openChat(matchId, matchName, matchUserId) {
       currentMatchId = matchId;
       currentMatchName = matchName;
+      currentMatchUserId = matchUserId || matchId;
       chatTitle.textContent = matchName;
       chatModal.classList.add('active');
+      chatMessagesList = [];
       renderMessages();
+      loadChatMessages(currentMatchUserId);
       chatInput.focus();
     }
     
@@ -805,20 +863,19 @@ document.addEventListener('DOMContentLoaded', () => {
       chatModal.classList.remove('active');
       currentMatchId = null;
       currentMatchName = null;
+      currentMatchUserId = null;
     }
     
     function renderMessages() {
-      const allMessages = getMessages();
-      const matchMessages = allMessages[currentMatchId] || [];
-      
-      if (matchMessages.length === 0) {
-        chatMessages.innerHTML = '<div class="chat-empty">Say hi to ' + currentMatchName + '!</div>';
+      if (chatMessagesList.length === 0) {
+        chatMessages.innerHTML = '<div class="chat-empty">Say hi to ' + escapeHtml(currentMatchName) + '!</div>';
         return;
       }
       
-      chatMessages.innerHTML = matchMessages.map(msg => 
-        `<div class="chat-bubble ${msg.sent ? 'sent' : 'received'}">${escapeHtml(msg.text)}</div>`
-      ).join('');
+      chatMessages.innerHTML = chatMessagesList.map(msg => {
+        const isSent = msg.sender_id == currentUserId;
+        return `<div class="chat-bubble ${isSent ? 'sent' : 'received'}">${escapeHtml(msg.message)}</div>`;
+      }).join('');
       
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
@@ -831,45 +888,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function sendMessage() {
       const text = chatInput.value.trim();
-      if (!text || !currentMatchId) return;
+      if (!text || !currentMatchUserId || !ws || ws.readyState !== WebSocket.OPEN) return;
       
-      const allMessages = getMessages();
-      if (!allMessages[currentMatchId]) {
-        allMessages[currentMatchId] = [];
-      }
+      ws.send(JSON.stringify({
+        type: 'message',
+        receiverId: currentMatchUserId,
+        text: text
+      }));
       
-      allMessages[currentMatchId].push({ text, sent: true, time: Date.now() });
-      saveMessages(allMessages);
       chatInput.value = '';
-      renderMessages();
-      
-      // Simulate a reply after a short delay
-      setTimeout(() => {
-        const replies = [
-          "That's so interesting!",
-          "I love that! Tell me more?",
-          "Haha, same here!",
-          "What else do you enjoy?",
-          "That's really cool!",
-          "I've been thinking about that too!",
-          "Sounds amazing!"
-        ];
-        const reply = replies[Math.floor(Math.random() * replies.length)];
-        allMessages[currentMatchId].push({ text: reply, sent: false, time: Date.now() });
-        saveMessages(allMessages);
-        if (chatModal.classList.contains('active') && currentMatchId) {
-          renderMessages();
-        }
-      }, 1000 + Math.random() * 2000);
     }
-    
-    matchItems.forEach(item => {
-      item.addEventListener('click', () => {
-        const matchId = item.dataset.matchId;
-        const matchName = item.dataset.matchName;
-        openChat(matchId, matchName);
-      });
-    });
     
     if (chatBack) chatBack.addEventListener('click', closeChat);
     if (chatSend) chatSend.addEventListener('click', sendMessage);
