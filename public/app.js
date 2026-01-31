@@ -805,6 +805,12 @@ document.addEventListener('DOMContentLoaded', () => {
       
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        if (data.type === 'auth_failed') {
+          localStorage.removeItem(AUTH_KEY);
+          mainApp.style.display = 'none';
+          authScreen.classList.add('active');
+          return;
+        }
         if (data.type === 'message') {
           const msg = data.data;
           // Add to messages if it's for current chat
@@ -832,6 +838,12 @@ document.addEventListener('DOMContentLoaded', () => {
             'Authorization': `Bearer ${authToken}`
           }
         });
+        if (res.status === 401) {
+          localStorage.removeItem(AUTH_KEY);
+          mainApp.style.display = 'none';
+          authScreen.classList.add('active');
+          return;
+        }
         if (res.ok) {
           chatMessagesList = await res.json();
           renderMessages();

@@ -143,7 +143,14 @@ app.post('/api/auth/register', async (req, res) => {
       [userId, profileName, bio || '']
     );
     
-    res.json({ success: true });
+    const token = crypto.randomBytes(32).toString('hex');
+    userTokens.set(token, userId);
+    
+    res.json({ 
+      success: true, 
+      token, 
+      user: { id: userId, name: name.trim(), email: email.toLowerCase(), age: age || null, bio: bio || '' } 
+    });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed' });
