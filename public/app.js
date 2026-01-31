@@ -419,9 +419,73 @@ document.addEventListener('DOMContentLoaded', () => {
     currentCard.classList.remove('swiping-left', 'swiping-right');
   }
 
+  const MATCHES_KEY = 'intro_matches';
+  
+  function getMatches() {
+    return JSON.parse(localStorage.getItem(MATCHES_KEY) || '[]');
+  }
+  
+  function saveMatch(profile) {
+    const matches = getMatches();
+    if (!matches.find(m => m.id === profile.id)) {
+      matches.push({
+        id: profile.id,
+        name: profile.name,
+        bio: profile.bio,
+        time: Date.now()
+      });
+      localStorage.setItem(MATCHES_KEY, JSON.stringify(matches));
+      renderMatches();
+    }
+  }
+  
+  function renderMatches() {
+    const matchesList = document.getElementById('matchesList');
+    if (!matchesList) return;
+    
+    const matches = getMatches();
+    
+    if (matches.length === 0) {
+      matchesList.innerHTML = '<div class="no-matches">No matches yet. Start swiping to find your people!</div>';
+      return;
+    }
+    
+    matchesList.innerHTML = matches.map(match => `
+      <div class="match-item" data-match-id="${match.id}" data-match-name="${match.name}">
+        <div class="match-avatar">${match.name.charAt(0)}</div>
+        <div class="match-info">
+          <h3>${match.name}</h3>
+          <p class="last-message">Tap to start chatting</p>
+        </div>
+        <span class="chat-arrow">›</span>
+      </div>
+    `).join('');
+    
+    // Re-attach click handlers for new match items
+    attachMatchClickHandlers();
+  }
+  
+  // Will be set later when chat is initialized
+  let openChatFn = null;
+  
+  function attachMatchClickHandlers() {
+    const matchItems = document.querySelectorAll('.match-item');
+    matchItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const matchId = item.dataset.matchId;
+        const matchName = item.dataset.matchName;
+        if (openChatFn) openChatFn(matchId, matchName);
+      });
+    });
+  }
+
   function swipe(direction) {
     currentCard.classList.add(direction === 'left' ? 'swiping-left' : 'swiping-right');
     setTimeout(() => {
+      // Save match if liked
+      if (direction === 'right' && profiles[currentIndex]) {
+        saveMatch(profiles[currentIndex]);
+      }
       currentIndex++;
       updateCard();
     }, 300);
@@ -730,6 +794,12 @@ document.addEventListener('DOMContentLoaded', () => {
       renderMessages();
       chatInput.focus();
     }
+    
+    // Set the openChat function so attachMatchClickHandlers can use it
+    openChatFn = openChat;
+    
+    // Render existing matches
+    renderMatches();
     
     function closeChat() {
       chatModal.classList.remove('active');
