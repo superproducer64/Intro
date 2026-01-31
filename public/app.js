@@ -701,6 +701,114 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
     
+    // Chat functionality
+    const chatModal = document.getElementById('chatModal');
+    const chatBack = document.getElementById('chatBack');
+    const chatTitle = document.getElementById('chatTitle');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const chatSend = document.getElementById('chatSend');
+    const matchItems = document.querySelectorAll('.match-item');
+    
+    let currentMatchId = null;
+    let currentMatchName = null;
+    const MESSAGES_KEY = 'intro_messages';
+    
+    function getMessages() {
+      return JSON.parse(localStorage.getItem(MESSAGES_KEY) || '{}');
+    }
+    
+    function saveMessages(messages) {
+      localStorage.setItem(MESSAGES_KEY, JSON.stringify(messages));
+    }
+    
+    function openChat(matchId, matchName) {
+      currentMatchId = matchId;
+      currentMatchName = matchName;
+      chatTitle.textContent = matchName;
+      chatModal.classList.add('active');
+      renderMessages();
+      chatInput.focus();
+    }
+    
+    function closeChat() {
+      chatModal.classList.remove('active');
+      currentMatchId = null;
+      currentMatchName = null;
+    }
+    
+    function renderMessages() {
+      const allMessages = getMessages();
+      const matchMessages = allMessages[currentMatchId] || [];
+      
+      if (matchMessages.length === 0) {
+        chatMessages.innerHTML = '<div class="chat-empty">Say hi to ' + currentMatchName + '!</div>';
+        return;
+      }
+      
+      chatMessages.innerHTML = matchMessages.map(msg => 
+        `<div class="chat-bubble ${msg.sent ? 'sent' : 'received'}">${escapeHtml(msg.text)}</div>`
+      ).join('');
+      
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    function sendMessage() {
+      const text = chatInput.value.trim();
+      if (!text || !currentMatchId) return;
+      
+      const allMessages = getMessages();
+      if (!allMessages[currentMatchId]) {
+        allMessages[currentMatchId] = [];
+      }
+      
+      allMessages[currentMatchId].push({ text, sent: true, time: Date.now() });
+      saveMessages(allMessages);
+      chatInput.value = '';
+      renderMessages();
+      
+      // Simulate a reply after a short delay
+      setTimeout(() => {
+        const replies = [
+          "That's so interesting!",
+          "I love that! Tell me more?",
+          "Haha, same here!",
+          "What else do you enjoy?",
+          "That's really cool!",
+          "I've been thinking about that too!",
+          "Sounds amazing!"
+        ];
+        const reply = replies[Math.floor(Math.random() * replies.length)];
+        allMessages[currentMatchId].push({ text: reply, sent: false, time: Date.now() });
+        saveMessages(allMessages);
+        if (chatModal.classList.contains('active') && currentMatchId) {
+          renderMessages();
+        }
+      }, 1000 + Math.random() * 2000);
+    }
+    
+    matchItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const matchId = item.dataset.matchId;
+        const matchName = item.dataset.matchName;
+        openChat(matchId, matchName);
+      });
+    });
+    
+    if (chatBack) chatBack.addEventListener('click', closeChat);
+    if (chatSend) chatSend.addEventListener('click', sendMessage);
+    if (chatInput) {
+      chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+      });
+    }
+    
     // Default to discover tab to show potential matches
     switchTab('discover');
   } // End initMainApp

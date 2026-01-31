@@ -377,28 +377,44 @@
       <!-- Matches Tab -->
       <div class="tab-content" id="matches-tab">
         <div class="section-title">Your Matches</div>
-        <div class="matches-list">
-          <div class="match-item">
-            <div class="match-avatar">👥</div>
+        <div class="matches-list" id="matchesList">
+          <div class="match-item" data-match-id="1" data-match-name="Emma">
+            <div class="match-avatar">E</div>
             <div class="match-info">
-              <h3>Emma & Alex</h3>
-              <p>Connected 2 days ago</p>
+              <h3>Emma</h3>
+              <p class="last-message">Tap to start chatting</p>
             </div>
+            <span class="chat-arrow">›</span>
           </div>
-          <div class="match-item">
-            <div class="match-avatar">👥</div>
+          <div class="match-item" data-match-id="2" data-match-name="Sophia">
+            <div class="match-avatar">S</div>
             <div class="match-info">
-              <h3>Jordan & You</h3>
-              <p>Connected 1 week ago</p>
+              <h3>Sophia</h3>
+              <p class="last-message">Tap to start chatting</p>
             </div>
+            <span class="chat-arrow">›</span>
           </div>
-          <div class="match-item">
-            <div class="match-avatar">👥</div>
+          <div class="match-item" data-match-id="3" data-match-name="Olivia">
+            <div class="match-avatar">O</div>
             <div class="match-info">
-              <h3>Sam & You</h3>
-              <p>Connected 2 weeks ago</p>
+              <h3>Olivia</h3>
+              <p class="last-message">Tap to start chatting</p>
             </div>
+            <span class="chat-arrow">›</span>
           </div>
+        </div>
+      </div>
+      
+      <!-- Chat Modal -->
+      <div class="chat-modal" id="chatModal">
+        <div class="chat-header">
+          <button class="chat-back" id="chatBack">‹</button>
+          <div class="chat-title" id="chatTitle">Chat</div>
+        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-area">
+          <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
+          <button class="chat-send" id="chatSend">Send</button>
         </div>
       </div>
 
