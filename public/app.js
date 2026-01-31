@@ -669,5 +669,8 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.remove('active');
       }
     });
+    
+    // Default to discover tab to show potential matches
+    switchTab('discover');
   } // End initMainApp
 });
