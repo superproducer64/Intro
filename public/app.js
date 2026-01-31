@@ -691,6 +691,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     loadUserProfile();
     
+    // Logout functionality
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem(AUTH_KEY);
+        mainApp.style.display = 'none';
+        authScreen.classList.add('active');
+      });
+    }
+    
     // Default to discover tab to show potential matches
     switchTab('discover');
   } // End initMainApp
