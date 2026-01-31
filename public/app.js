@@ -1,41 +1,165 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const currentCard = document.getElementById('currentCard');
-  const passBtn = document.getElementById('passBtn');
-  const likeBtn = document.getElementById('likeBtn');
-  const navItems = document.querySelectorAll('.nav-item');
-  const tabContents = document.querySelectorAll('.tab-content');
-
-  function showErrorMessage(message) {
-    let errorEl = document.getElementById('errorToast');
-    if (!errorEl) {
-      errorEl = document.createElement('div');
-      errorEl.id = 'errorToast';
-      errorEl.className = 'error-toast';
-      document.body.appendChild(errorEl);
-    }
-    errorEl.textContent = message;
-    errorEl.classList.add('show');
+  const AUTH_KEY = 'intro_user_auth';
+  const introScreen = document.getElementById('introScreen');
+  const authScreen = document.getElementById('authScreen');
+  const mainApp = document.getElementById('mainApp');
+  
+  // Check if user is already logged in
+  const savedAuth = localStorage.getItem(AUTH_KEY);
+  if (savedAuth) {
+    introScreen.classList.add('hidden');
+    authScreen.classList.remove('active');
+    mainApp.style.display = 'flex';
+    initMainApp();
+  } else {
+    // Show splash screen, then auth
     setTimeout(() => {
-      errorEl.classList.remove('show');
-    }, 5000);
+      introScreen.classList.add('fade-out');
+      setTimeout(() => {
+        introScreen.classList.add('hidden');
+        authScreen.classList.add('active');
+      }, 600);
+    }, 2500);
   }
 
-  let profiles = [];
-  let currentIndex = 0;
+  // Auth tabs
+  const authTabs = document.querySelectorAll('.auth-tab');
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
 
-  async function loadProfiles() {
-    try {
-      const res = await fetch('/api/profiles');
-      if (res.ok) {
-        profiles = await res.json();
-        if (profiles.length > 0) updateCard();
+  authTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      authTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      if (tab.dataset.auth === 'login') {
+        loginForm.classList.remove('hidden');
+        signupForm.classList.add('hidden');
+      } else {
+        loginForm.classList.add('hidden');
+        signupForm.classList.remove('hidden');
       }
-    } catch (e) {
-      console.error('Failed to load profiles');
-    }
-  }
+    });
+  });
 
-  loadProfiles();
+  // Login handler
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = loginForm.querySelector('input[type="email"]').value;
+    const password = loginForm.querySelector('input[type="password"]').value;
+    const errorEl = document.getElementById('loginError');
+    const btn = loginForm.querySelector('button');
+    
+    btn.disabled = true;
+    btn.textContent = 'Signing in...';
+    errorEl.textContent = '';
+    
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+        authScreen.classList.remove('active');
+        mainApp.style.display = 'flex';
+        initMainApp();
+      } else {
+        errorEl.textContent = data.error || 'Login failed';
+      }
+    } catch (err) {
+      errorEl.textContent = 'Connection error. Please try again.';
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  });
+
+  // Signup handler
+  signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('signupName').value;
+    const age = document.getElementById('signupAge').value;
+    const email = document.getElementById('signupEmail').value;
+    const password = document.getElementById('signupPassword').value;
+    const bio = document.getElementById('signupBio').value;
+    const errorEl = document.getElementById('signupError');
+    const successEl = document.getElementById('signupSuccess');
+    const btn = signupForm.querySelector('button');
+    
+    btn.disabled = true;
+    btn.textContent = 'Creating account...';
+    errorEl.textContent = '';
+    successEl.classList.add('hidden');
+    
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, age: parseInt(age), email, password, bio })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        successEl.classList.remove('hidden');
+        signupForm.reset();
+        setTimeout(() => {
+          authTabs[0].click();
+        }, 1500);
+      } else {
+        errorEl.textContent = data.error || 'Registration failed';
+      }
+    } catch (err) {
+      errorEl.textContent = 'Connection error. Please try again.';
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Create Account';
+  });
+
+  function initMainApp() {
+    const currentCard = document.getElementById('currentCard');
+    const passBtn = document.getElementById('passBtn');
+    const likeBtn = document.getElementById('likeBtn');
+    const navItems = document.querySelectorAll('.nav-item');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    function showErrorMessage(message) {
+      let errorEl = document.getElementById('errorToast');
+      if (!errorEl) {
+        errorEl = document.createElement('div');
+        errorEl.id = 'errorToast';
+        errorEl.className = 'error-toast';
+        document.body.appendChild(errorEl);
+      }
+      errorEl.textContent = message;
+      errorEl.classList.add('show');
+      setTimeout(() => {
+        errorEl.classList.remove('show');
+      }, 5000);
+    }
+
+    let profiles = [];
+    let currentIndex = 0;
+
+    async function loadProfiles() {
+      try {
+        const res = await fetch('/api/profiles');
+        if (res.ok) {
+          profiles = await res.json();
+          if (profiles.length > 0) updateCard();
+        }
+      } catch (e) {
+        console.error('Failed to load profiles');
+      }
+    }
+
+    loadProfiles();
 
   function updateCard() {
     if (profiles.length === 0) return;
@@ -291,13 +415,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  closeModal.addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
+    closeModal.addEventListener('click', () => {
       modal.classList.remove('active');
-    }
-  });
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('active');
+      }
+    });
+  } // End initMainApp
 });
