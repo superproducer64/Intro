@@ -66,7 +66,11 @@ async function initDB() {
   }
 }
 
-initDB().catch(console.error);
+initDB().then(() => {
+  console.log('Database initialized successfully');
+}).catch((err) => {
+  console.error('Database initialization error:', err.message);
+});
 
 function verifyAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -76,8 +80,19 @@ function verifyAdmin(req, res, next) {
   next();
 }
 
-app.use(express.static('public'));
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
+app.use(express.static('public', { etag: false, lastModified: false }));
 app.use(express.json());
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
