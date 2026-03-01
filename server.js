@@ -29,14 +29,25 @@ async function initDB() {
       password VARCHAR(255) NOT NULL,
       age INT,
       bio TEXT,
+      apple_id VARCHAR(255) UNIQUE,
+      photo_url TEXT,
+      personality_type VARCHAR(50),
+      looking_for VARCHAR(100),
+      location VARCHAR(100),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id VARCHAR(255) UNIQUE`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS personality_type VARCHAR(50)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS looking_for VARCHAR(100)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(100)`);
   
   await pool.query(`
     CREATE TABLE IF NOT EXISTS profiles (
       id SERIAL PRIMARY KEY,
-      user_id INT REFERENCES users(id),
+      user_id INT REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(100) NOT NULL,
       bio TEXT,
       sort_order INT DEFAULT 0
@@ -50,6 +61,65 @@ async function initDB() {
       receiver_id INT NOT NULL,
       message TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id SERIAL PRIMARY KEY,
+      reporter_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reported_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reason VARCHAR(100) NOT NULL,
+      details TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blocks (
+      id SERIAL PRIMARY KEY,
+      blocker_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      blocked_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(blocker_id, blocked_user_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS prompts (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      prompt_question TEXT NOT NULL,
+      prompt_answer TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS likes (
+      id SERIAL PRIMARY KEY,
+      liker_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      liked_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(liker_id, liked_user_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS matches (
+      id SERIAL PRIMARY KEY,
+      user1_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      user2_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user1_id, user2_id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS interests (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      interest VARCHAR(100) NOT NULL
     )
   `);
   
@@ -77,6 +147,19 @@ function verifyAdmin(req, res, next) {
   if (!token || !adminTokens.has(token)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  next();
+}
+
+function verifyUser(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const userId = userTokens.get(token);
+  if (!userId) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  req.userId = userId;
   next();
 }
 
@@ -258,20 +341,260 @@ app.post('/api/admin/profiles', verifyAdmin, async (req, res) => {
 
 app.get('/api/profiles', async (req, res) => {
   try {
-    const userId = req.query.exclude_user_id;
-    let query = 'SELECT id, user_id, name, bio FROM profiles';
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const userId = token ? userTokens.get(token) : req.query.exclude_user_id;
+    let query = 'SELECT p.id, p.user_id, p.name, p.bio FROM profiles p';
     let params = [];
     
     if (userId) {
-      query += ' WHERE user_id IS NULL OR user_id != $1';
+      query += ` WHERE (p.user_id IS NULL OR p.user_id != $1)
+        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT blocked_user_id FROM blocks WHERE blocker_id = $1))
+        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_user_id = $1))`;
       params.push(userId);
     }
     
-    query += ' ORDER BY sort_order';
+    query += ' ORDER BY p.sort_order';
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch profiles' });
+  }
+});
+
+app.post('/api/report', verifyUser, async (req, res) => {
+  const { reportedUserId, reason, details } = req.body;
+  if (!reportedUserId || !reason) {
+    return res.status(400).json({ error: 'Reported user and reason are required' });
+  }
+  try {
+    await pool.query(
+      'INSERT INTO reports (reporter_id, reported_user_id, reason, details) VALUES ($1, $2, $3, $4)',
+      [req.userId, reportedUserId, reason, details || '']
+    );
+    res.json({ success: true, message: 'Report submitted' });
+  } catch (error) {
+    console.error('Report error:', error);
+    res.status(500).json({ error: 'Failed to submit report' });
+  }
+});
+
+app.post('/api/block', verifyUser, async (req, res) => {
+  const { blockedUserId } = req.body;
+  if (!blockedUserId) {
+    return res.status(400).json({ error: 'User ID to block is required' });
+  }
+  try {
+    await pool.query(
+      'INSERT INTO blocks (blocker_id, blocked_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.userId, blockedUserId]
+    );
+    await pool.query(
+      'DELETE FROM matches WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)',
+      [req.userId, blockedUserId]
+    );
+    await pool.query(
+      'DELETE FROM likes WHERE (liker_id = $1 AND liked_user_id = $2) OR (liker_id = $2 AND liked_user_id = $1)',
+      [req.userId, blockedUserId]
+    );
+    res.json({ success: true, message: 'User blocked' });
+  } catch (error) {
+    console.error('Block error:', error);
+    res.status(500).json({ error: 'Failed to block user' });
+  }
+});
+
+app.delete('/api/account', verifyUser, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM users WHERE id = $1', [req.userId]);
+    for (const [token, id] of userTokens.entries()) {
+      if (id === req.userId) userTokens.delete(token);
+    }
+    res.json({ success: true, message: 'Account deleted' });
+  } catch (error) {
+    console.error('Account deletion error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
+app.post('/api/prompts', verifyUser, async (req, res) => {
+  const { prompts } = req.body;
+  if (!prompts || !Array.isArray(prompts)) {
+    return res.status(400).json({ error: 'Prompts array is required' });
+  }
+  try {
+    await pool.query('DELETE FROM prompts WHERE user_id = $1', [req.userId]);
+    for (const p of prompts) {
+      if (p.question && p.answer) {
+        await pool.query(
+          'INSERT INTO prompts (user_id, prompt_question, prompt_answer) VALUES ($1, $2, $3)',
+          [req.userId, p.question, p.answer]
+        );
+      }
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Prompts save error:', error);
+    res.status(500).json({ error: 'Failed to save prompts' });
+  }
+});
+
+app.get('/api/prompts/:userId', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT prompt_question, prompt_answer FROM prompts WHERE user_id = $1 ORDER BY id',
+      [req.params.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch prompts' });
+  }
+});
+
+app.post('/api/like', verifyUser, async (req, res) => {
+  const { likedUserId } = req.body;
+  if (!likedUserId) {
+    return res.status(400).json({ error: 'User ID to like is required' });
+  }
+  try {
+    const blocked = await pool.query(
+      'SELECT id FROM blocks WHERE (blocker_id = $1 AND blocked_user_id = $2) OR (blocker_id = $2 AND blocked_user_id = $1)',
+      [req.userId, likedUserId]
+    );
+    if (blocked.rows.length > 0) {
+      return res.status(400).json({ error: 'Cannot like this user' });
+    }
+    await pool.query(
+      'INSERT INTO likes (liker_id, liked_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.userId, likedUserId]
+    );
+    const mutual = await pool.query(
+      'SELECT id FROM likes WHERE liker_id = $1 AND liked_user_id = $2',
+      [likedUserId, req.userId]
+    );
+    let isMatch = false;
+    if (mutual.rows.length > 0) {
+      const u1 = Math.min(req.userId, likedUserId);
+      const u2 = Math.max(req.userId, likedUserId);
+      await pool.query(
+        'INSERT INTO matches (user1_id, user2_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [u1, u2]
+      );
+      isMatch = true;
+    }
+    res.json({ success: true, isMatch });
+  } catch (error) {
+    console.error('Like error:', error);
+    res.status(500).json({ error: 'Failed to process like' });
+  }
+});
+
+app.get('/api/matches', verifyUser, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT m.id as match_id, m.created_at as matched_at,
+        u.id as user_id, u.name, u.age, u.bio, u.photo_url
+       FROM matches m
+       JOIN users u ON (u.id = CASE WHEN m.user1_id = $1 THEN m.user2_id ELSE m.user1_id END)
+       WHERE m.user1_id = $1 OR m.user2_id = $1
+       ORDER BY m.created_at DESC`,
+      [req.userId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Matches fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch matches' });
+  }
+});
+
+app.post('/api/auth/apple', async (req, res) => {
+  const { appleId, name, email } = req.body;
+  if (!appleId) {
+    return res.status(400).json({ error: 'Apple ID is required' });
+  }
+  try {
+    const existing = await pool.query('SELECT id, name, email, age, bio FROM users WHERE apple_id = $1', [appleId]);
+    if (existing.rows.length > 0) {
+      const user = existing.rows[0];
+      const token = crypto.randomBytes(32).toString('hex');
+      userTokens.set(token, user.id);
+      return res.json({ token, user, isNewUser: false });
+    }
+    const userEmail = email || `${appleId}@apple.privaterelay`;
+    const userName = name || 'Intro User';
+    const randomPass = crypto.randomBytes(32).toString('hex');
+    const hashedPassword = await bcrypt.hash(randomPass, 12);
+    const userResult = await pool.query(
+      'INSERT INTO users (name, email, password, apple_id) VALUES ($1, $2, $3, $4) RETURNING id',
+      [userName, userEmail, hashedPassword, appleId]
+    );
+    const userId = userResult.rows[0].id;
+    await pool.query(
+      'INSERT INTO profiles (user_id, name, bio, sort_order) VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM profiles))',
+      [userId, userName, '']
+    );
+    const token = crypto.randomBytes(32).toString('hex');
+    userTokens.set(token, userId);
+    res.json({
+      token,
+      user: { id: userId, name: userName, email: userEmail },
+      isNewUser: true
+    });
+  } catch (error) {
+    console.error('Apple auth error:', error);
+    res.status(500).json({ error: 'Apple sign-in failed' });
+  }
+});
+
+app.put('/api/profile', verifyUser, async (req, res) => {
+  const { name, age, bio, photoUrl, personalityType, lookingFor, location, interests } = req.body;
+  try {
+    await pool.query(
+      `UPDATE users SET name = COALESCE($2, name), age = COALESCE($3, age), bio = COALESCE($4, bio),
+       photo_url = COALESCE($5, photo_url), personality_type = COALESCE($6, personality_type),
+       looking_for = COALESCE($7, looking_for), location = COALESCE($8, location)
+       WHERE id = $1`,
+      [req.userId, name, age, bio, photoUrl, personalityType, lookingFor, location]
+    );
+    const profileName = age ? `${name}, ${age}` : name;
+    await pool.query(
+      'UPDATE profiles SET name = $2, bio = $3 WHERE user_id = $1',
+      [req.userId, profileName || name, bio || '']
+    );
+    if (interests && Array.isArray(interests)) {
+      await pool.query('DELETE FROM interests WHERE user_id = $1', [req.userId]);
+      for (const interest of interests) {
+        await pool.query('INSERT INTO interests (user_id, interest) VALUES ($1, $2)', [req.userId, interest]);
+      }
+    }
+    const user = await pool.query(
+      'SELECT id, name, email, age, bio, photo_url, personality_type, looking_for, location FROM users WHERE id = $1',
+      [req.userId]
+    );
+    res.json({ success: true, user: user.rows[0] });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+app.get('/api/profile', verifyUser, async (req, res) => {
+  try {
+    const user = await pool.query(
+      'SELECT id, name, email, age, bio, photo_url, personality_type, looking_for, location FROM users WHERE id = $1',
+      [req.userId]
+    );
+    if (user.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const interests = await pool.query('SELECT interest FROM interests WHERE user_id = $1', [req.userId]);
+    const prompts = await pool.query('SELECT prompt_question, prompt_answer FROM prompts WHERE user_id = $1 ORDER BY id', [req.userId]);
+    res.json({
+      ...user.rows[0],
+      interests: interests.rows.map(r => r.interest),
+      prompts: prompts.rows
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
