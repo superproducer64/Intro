@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
+
+let AppleAuthentication = null;
+try {
+  AppleAuthentication = require('expo-apple-authentication');
+} catch (e) {}
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
+
+  useEffect(() => {
+    async function checkApple() {
+      if (Platform.OS === 'ios' && AppleAuthentication) {
+        try {
+          const available = await AppleAuthentication.isAvailableAsync();
+          setAppleAuthAvailable(available);
+        } catch (e) {
+          setAppleAuthAvailable(false);
+        }
+      }
+    }
+    checkApple();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -26,6 +45,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleAppleSignIn = async () => {
+    if (!AppleAuthentication) return;
     try {
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -86,7 +106,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.buttonText}>{loading ? 'Signing In...' : 'Sign In'}</Text>
           </TouchableOpacity>
 
-          {Platform.OS === 'ios' && (
+          {appleAuthAvailable && AppleAuthentication && (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}

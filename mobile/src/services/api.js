@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 
-const API_URL = 'https://intro.bgpstudios.com';
-const WS_URL = 'wss://intro.bgpstudios.com';
+const API_URL = 'https://70938a94-157f-4b05-b6f7-ac9b7fc375b2-00-34ozt3aky4587.riker.replit.dev';
+const WS_URL = 'wss://70938a94-157f-4b05-b6f7-ac9b7fc375b2-00-34ozt3aky4587.riker.replit.dev';
 
 let authToken = null;
 let currentUser = null;
