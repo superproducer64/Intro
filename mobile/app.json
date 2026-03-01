@@ -33,7 +33,8 @@
     "plugins": [
       "expo-apple-authentication",
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      "expo-web-browser"
     ]
   }
 }
