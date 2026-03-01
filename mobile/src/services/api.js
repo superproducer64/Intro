@@ -1,7 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 
-const API_URL = 'https://70938a94-157f-4b05-b6f7-ac9b7fc375b2-00-34ozt3aky4587.riker.replit.dev';
-const WS_URL = 'wss://70938a94-157f-4b05-b6f7-ac9b7fc375b2-00-34ozt3aky4587.riker.replit.dev';
+const DEV_DOMAIN = '70938a94-157f-4b05-b6f7-ac9b7fc375b2-00-34ozt3aky4587.riker.replit.dev';
+const API_URL = `https://${DEV_DOMAIN}`;
+const WS_URL = `wss://${DEV_DOMAIN}`;
 
 let authToken = null;
 let currentUser = null;
@@ -42,8 +43,17 @@ export function getUser() { return currentUser; }
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-  const data = await res.json();
+  const url = `${API_URL}${path}`;
+  console.log(`API Request: ${options.method || 'GET'} ${url}`);
+  const res = await fetch(url, { ...options, headers });
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    console.error('API returned non-JSON:', text.substring(0, 200));
+    throw new Error('Server returned an invalid response. Please try again.');
+  }
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
