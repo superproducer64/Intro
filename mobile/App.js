@@ -36,7 +36,16 @@ export default function App() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <NavigationContainer theme={{ dark: true, colors: { primary: COLORS.primary, background: COLORS.bg, card: COLORS.bgLight, text: COLORS.text, border: COLORS.border, notification: COLORS.primary } }}>
+      <NavigationContainer theme={{
+        dark: true,
+        colors: { primary: COLORS.primary, background: COLORS.bg, card: COLORS.bgLight, text: COLORS.text, border: COLORS.border, notification: COLORS.primary },
+        fonts: {
+          regular: { fontFamily: 'System', fontWeight: '400' },
+          medium: { fontFamily: 'System', fontWeight: '500' },
+          bold: { fontFamily: 'System', fontWeight: '700' },
+          heavy: { fontFamily: 'System', fontWeight: '800' },
+        },
+      }}>
         <AppNavigator initialRoute={initialRoute} />
       </NavigationContainer>
       {showSplash && (
