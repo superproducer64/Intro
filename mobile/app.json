@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#1a1a2e"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bgpstudios.intro",
@@ -28,6 +30,10 @@
       },
       "package": "com.bgpstudios.intro"
     },
-    "plugins": ["expo-apple-authentication", "expo-secure-store"]
+    "plugins": [
+      "expo-apple-authentication",
+      "expo-secure-store",
+      "expo-asset"
+    ]
   }
 }
