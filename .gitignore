@@ -1,7 +1,41 @@
+# Dependencies
+node_modules/
+mobile/node_modules/
+
+# Expo
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+
+# Build outputs
+build/
+dist/
+
+# Environment & secrets
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Replit internal
+.local/
+.upm/
+.config/
+
+# Legacy Flutter entries (kept below for iOS/Android patterns)
 # Miscellaneous
 *.class
-*.lock
-*.log
 *.pyc
 *.swp
 .buildlog/
