@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
 const DEV_DOMAIN = '70938a94-157f-4b05-b6f7-ac9b7fc375b2-00-34ozt3aky4587.riker.replit.dev';
-const PROD_DOMAIN = process.env.EXPO_PUBLIC_API_DOMAIN || DEV_DOMAIN;
+const PROD_DOMAIN = process.env.EXPO_PUBLIC_API_DOMAIN || 'intro-bgpstudioshou.replit.app';
 
 const isProduction = Constants.expoConfig?.extra?.eas?.environment === 'production'
   || process.env.NODE_ENV === 'production';

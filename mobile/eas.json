@@ -23,7 +23,7 @@
       },
       "env": {
         "NODE_ENV": "production",
-        "EXPO_PUBLIC_API_DOMAIN": "YOUR_DEPLOYED_DOMAIN_HERE"
+        "EXPO_PUBLIC_API_DOMAIN": "intro-bgpstudioshou.replit.app"
       }
     }
   },
