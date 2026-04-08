@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, KeyboardAvoidingView, ScrollView, Linking } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
+
+const TOS_URL = 'https://intro-bgpstudioshou.replit.app/tos.html';
 
 const INTEREST_OPTIONS = [
   'Books', 'Gaming', 'Cooking', 'Hiking', 'Art', 'Music',
@@ -132,6 +134,10 @@ export default function RegisterScreen({ navigation }) {
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor={COLORS.textMuted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Password" placeholderTextColor={COLORS.textMuted} value={password} onChangeText={setPassword} secureTextEntry />
       <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor={COLORS.textMuted} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+      <Text style={styles.tosText}>
+        By creating an account, you agree to our{' '}
+        <Text style={styles.tosLink} onPress={() => Linking.openURL(TOS_URL)}>Terms of Service</Text>
+      </Text>
     </View>,
   ];
 
@@ -220,4 +226,6 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   linkText: { color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACING.lg, marginBottom: SPACING.xl },
   link: { color: COLORS.primary, fontWeight: '600' },
+  tosText: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', marginTop: SPACING.sm },
+  tosLink: { color: COLORS.primary, textDecorationLine: 'underline' },
 });
