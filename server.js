@@ -122,6 +122,16 @@ async function initDB() {
       interest VARCHAR(100) NOT NULL
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS passes (
+      id SERIAL PRIMARY KEY,
+      passer_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      passed_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(passer_id, passed_user_id)
+    )
+  `);
   
   const result = await pool.query('SELECT COUNT(*) FROM profiles');
   if (parseInt(result.rows[0].count) === 0) {
@@ -355,7 +365,8 @@ app.get('/api/profiles', async (req, res) => {
     if (userId) {
       query += ` WHERE (p.user_id IS NULL OR p.user_id != $1)
         AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT blocked_user_id FROM blocks WHERE blocker_id = $1))
-        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_user_id = $1))`;
+        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_user_id = $1))
+        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT passed_user_id FROM passes WHERE passer_id = $1))`;
       params.push(userId);
     }
     
@@ -364,6 +375,20 @@ app.get('/api/profiles', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch profiles' });
+  }
+});
+
+app.post('/api/pass', verifyUser, async (req, res) => {
+  const { passedUserId } = req.body;
+  if (!passedUserId) return res.status(400).json({ error: 'User ID required' });
+  try {
+    await pool.query(
+      'INSERT INTO passes (passer_id, passed_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.userId, passedUserId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to record pass' });
   }
 });
 
