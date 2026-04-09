@@ -792,14 +792,17 @@ wss.on('connection', (ws) => {
           createdAt: result.rows[0].created_at,
         };
 
+        const payload = JSON.stringify({ type: 'message', ...savedMessage });
+        console.log(`[WS] emitting payload: ${payload}`);
+
         // Echo back to sender
-        ws.send(JSON.stringify({ type: 'message', data: savedMessage }));
+        ws.send(payload);
         console.log(`[WS] echoed to sender user_id=${userId}`);
 
         // Deliver to receiver if connected
         const receiverWs = connectedClients.get(rid);
         if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
-          receiverWs.send(JSON.stringify({ type: 'message', data: savedMessage }));
+          receiverWs.send(payload);
           console.log(`[WS] delivered to receiver user_id=${rid}`);
         } else {
           console.log(`[WS] receiver user_id=${rid} not connected (connectedClients=${[...connectedClients.keys()].join(',')})`);
