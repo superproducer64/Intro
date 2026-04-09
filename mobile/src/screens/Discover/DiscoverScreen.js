@@ -47,7 +47,7 @@ export default function DiscoverScreen() {
       if (direction === 'right' && profile.user_id) {
         try {
           const result = await api.likeUser(profile.user_id);
-          if (result.isMatch) {
+          if (result.match) {
             Alert.alert('It\'s a Match!', `You and ${profile.name} liked each other!`);
           }
         } catch (e) {

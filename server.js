@@ -535,25 +535,33 @@ app.post('/api/like', verifyUser, async (req, res) => {
     if (blocked.rows.length > 0) {
       return res.status(400).json({ error: 'Cannot like this user' });
     }
+    const uid = parseInt(req.userId, 10);
+    const lid = parseInt(likedUserId, 10);
     await pool.query(
       'INSERT INTO likes (liker_id, liked_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [req.userId, likedUserId]
+      [uid, lid]
     );
     const mutual = await pool.query(
       'SELECT id FROM likes WHERE liker_id = $1 AND liked_user_id = $2',
-      [likedUserId, req.userId]
+      [lid, uid]
     );
-    let isMatch = false;
+    let matchedUser = null;
     if (mutual.rows.length > 0) {
-      const u1 = Math.min(req.userId, likedUserId);
-      const u2 = Math.max(req.userId, likedUserId);
+      const u1 = Math.min(uid, lid);
+      const u2 = Math.max(uid, lid);
       await pool.query(
         'INSERT INTO matches (user1_id, user2_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
         [u1, u2]
       );
-      isMatch = true;
+      const userRow = await pool.query(
+        'SELECT id, name, email, age, bio FROM users WHERE id = $1',
+        [lid]
+      );
+      if (userRow.rows.length > 0) {
+        matchedUser = { ...userRow.rows[0], photos: [], prompts: [] };
+      }
     }
-    res.json({ success: true, isMatch, message: isMatch ? 'It\'s a match!' : 'Like recorded' });
+    res.json({ match: matchedUser !== null, matchedUser });
   } catch (error) {
     console.error('Like error:', error);
     res.status(500).json({ error: 'Failed to process like' });
@@ -562,14 +570,21 @@ app.post('/api/like', verifyUser, async (req, res) => {
 
 app.get('/api/matches', verifyUser, async (req, res) => {
   try {
+    const uid = parseInt(req.userId, 10);
     const result = await pool.query(
       `SELECT m.id as match_id, m.created_at as matched_at,
-        u.id as user_id, u.name, u.age, u.bio, u.photo_url
+        u.id as user_id, u.name, u.age, u.bio
        FROM matches m
-       JOIN users u ON (u.id = CASE WHEN m.user1_id = $1 THEN m.user2_id ELSE m.user1_id END)
-       WHERE m.user1_id = $1 OR m.user2_id = $1
-       ORDER BY m.created_at DESC`,
-      [req.userId]
+       JOIN users u ON u.id = m.user2_id
+       WHERE m.user1_id = $1
+       UNION ALL
+       SELECT m.id as match_id, m.created_at as matched_at,
+        u.id as user_id, u.name, u.age, u.bio
+       FROM matches m
+       JOIN users u ON u.id = m.user1_id
+       WHERE m.user2_id = $1
+       ORDER BY matched_at DESC`,
+      [uid]
     );
     res.json(result.rows);
   } catch (error) {
