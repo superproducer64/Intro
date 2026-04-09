@@ -601,7 +601,13 @@ app.put('/api/profile', verifyUser, async (req, res) => {
       'SELECT id, name, email, age, bio, photo_url, personality_type, looking_for, location FROM users WHERE id = $1',
       [req.userId]
     );
-    res.json({ success: true, user: user.rows[0] });
+    const updatedInterests = await pool.query('SELECT interest FROM interests WHERE user_id = $1', [req.userId]);
+    const updatedPrompts = await pool.query('SELECT prompt_question, prompt_answer FROM prompts WHERE user_id = $1 ORDER BY id', [req.userId]);
+    res.json({
+      ...user.rows[0],
+      interests: updatedInterests.rows.map(r => r.interest),
+      prompts: updatedPrompts.rows
+    });
   } catch (error) {
     console.error('Profile update error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
