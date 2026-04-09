@@ -573,20 +573,34 @@ app.get('/api/matches', verifyUser, async (req, res) => {
     const uid = parseInt(req.userId, 10);
     const result = await pool.query(
       `SELECT m.id as match_id, m.created_at as matched_at,
-        u.id as user_id, u.name, u.age, u.bio
+        u.id as user_id, u.name, u.email, u.age, u.bio
        FROM matches m
        JOIN users u ON u.id = m.user2_id
        WHERE m.user1_id = $1
        UNION ALL
        SELECT m.id as match_id, m.created_at as matched_at,
-        u.id as user_id, u.name, u.age, u.bio
+        u.id as user_id, u.name, u.email, u.age, u.bio
        FROM matches m
        JOIN users u ON u.id = m.user1_id
        WHERE m.user2_id = $1
        ORDER BY matched_at DESC`,
       [uid]
     );
-    res.json(result.rows);
+    const matches = result.rows.map(row => ({
+      id: row.match_id,
+      matchedAt: row.matched_at,
+      lastMessage: null,
+      user: {
+        id: row.user_id,
+        name: row.name,
+        email: row.email || null,
+        age: row.age,
+        bio: row.bio,
+        photos: [],
+        prompts: [],
+      },
+    }));
+    res.json(matches);
   } catch (error) {
     console.error('Matches fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch matches' });
