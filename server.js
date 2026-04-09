@@ -132,6 +132,20 @@ async function initDB() {
       UNIQUE(passer_id, passed_user_id)
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token VARCHAR(64) PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  const sessions = await pool.query('SELECT token, user_id FROM sessions');
+  for (const row of sessions.rows) {
+    userTokens.set(row.token, row.user_id);
+  }
+  console.log(`Loaded ${sessions.rows.length} sessions from database`);
   
   const result = await pool.query('SELECT COUNT(*) FROM profiles');
   if (parseInt(result.rows[0].count) === 0) {
@@ -160,14 +174,19 @@ function verifyAdmin(req, res, next) {
   next();
 }
 
-function verifyUser(req, res, next) {
+async function verifyUser(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  const userId = userTokens.get(token);
+  let userId = userTokens.get(token);
   if (!userId) {
-    return res.status(401).json({ error: 'Invalid token' });
+    const row = await pool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
+    if (row.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    userId = row.rows[0].user_id;
+    userTokens.set(token, userId);
   }
   req.userId = userId;
   next();
@@ -259,7 +278,8 @@ app.post('/api/auth/register', async (req, res) => {
     
     const token = crypto.randomBytes(32).toString('hex');
     userTokens.set(token, userId);
-    
+    await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, userId]);
+
     res.json({ 
       success: true, 
       token, 
@@ -297,7 +317,8 @@ app.post('/api/auth/login', async (req, res) => {
     
     const token = crypto.randomBytes(32).toString('hex');
     userTokens.set(token, user.id);
-    
+    await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, user.id]);
+
     delete user.password;
     res.json({ token, user });
   } catch (error) {
@@ -568,6 +589,7 @@ app.post('/api/auth/apple', async (req, res) => {
       const user = existing.rows[0];
       const token = crypto.randomBytes(32).toString('hex');
       userTokens.set(token, user.id);
+      await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, user.id]);
       return res.json({ token, user, isNewUser: false });
     }
     const userEmail = email || `${appleId}@apple.privaterelay`;
@@ -585,6 +607,7 @@ app.post('/api/auth/apple', async (req, res) => {
     );
     const token = crypto.randomBytes(32).toString('hex');
     userTokens.set(token, userId);
+    await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, userId]);
     res.json({
       token,
       user: { id: userId, name: userName, email: userEmail },
