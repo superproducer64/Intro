@@ -406,7 +406,7 @@ app.post('/api/pass', verifyUser, async (req, res) => {
       'INSERT INTO passes (passer_id, passed_user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [req.userId, passedUserId]
     );
-    res.json({ success: true });
+    res.json({ success: true, message: 'User passed successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to record pass' });
   }
@@ -532,7 +532,7 @@ app.post('/api/like', verifyUser, async (req, res) => {
       );
       isMatch = true;
     }
-    res.json({ success: true, isMatch });
+    res.json({ success: true, isMatch, message: isMatch ? 'It\'s a match!' : 'Like recorded' });
   } catch (error) {
     console.error('Like error:', error);
     res.status(500).json({ error: 'Failed to process like' });
