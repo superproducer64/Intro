@@ -744,59 +744,76 @@ app.post('/api/hyperbeam/create', async (req, res) => {
 wss.on('connection', (ws) => {
   let userId = null;
   let isAuthenticated = false;
-  
+
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
-      
+
       if (message.type === 'auth') {
         const token = message.token;
-        const tokenUserId = userTokens.get(token);
-        
+        let tokenUserId = userTokens.get(token);
+
+        // DB fallback — covers restarts where Map was repopulated but token missing
+        if (!tokenUserId) {
+          const row = await pool.query('SELECT user_id FROM sessions WHERE token = $1', [token]);
+          if (row.rows.length > 0) {
+            tokenUserId = row.rows[0].user_id;
+            userTokens.set(token, tokenUserId);
+          }
+        }
+
         if (tokenUserId) {
-          userId = tokenUserId;
+          userId = parseInt(tokenUserId, 10);
           isAuthenticated = true;
           connectedClients.set(userId, ws);
+          console.log(`[WS] authenticated: user_id=${userId}, connected clients=${connectedClients.size}`);
           ws.send(JSON.stringify({ type: 'auth_success' }));
         } else {
+          console.log('[WS] auth_failed: token not found in memory or DB');
           ws.send(JSON.stringify({ type: 'auth_failed', error: 'Invalid token' }));
         }
       }
-      
+
       if (message.type === 'message' && isAuthenticated && userId) {
         const { receiverId, text } = message;
-        
-        // Save to database
+        const rid = parseInt(receiverId, 10);
+        console.log(`[WS] message from user_id=${userId} to receiver_id=${rid}: "${text}"`);
+
         const result = await pool.query(
           'INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3) RETURNING id, created_at',
-          [userId, receiverId, text]
+          [userId, rid, text]
         );
-        
+
         const savedMessage = {
           id: result.rows[0].id,
-          sender_id: userId,
-          receiver_id: receiverId,
-          message: text,
-          created_at: result.rows[0].created_at
+          senderId: userId,
+          receiverId: rid,
+          text: text,
+          createdAt: result.rows[0].created_at,
         };
-        
-        // Send to sender
+
+        // Echo back to sender
         ws.send(JSON.stringify({ type: 'message', data: savedMessage }));
-        
-        // Send to receiver if online
-        const receiverWs = connectedClients.get(parseInt(receiverId));
+        console.log(`[WS] echoed to sender user_id=${userId}`);
+
+        // Deliver to receiver if connected
+        const receiverWs = connectedClients.get(rid);
         if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
           receiverWs.send(JSON.stringify({ type: 'message', data: savedMessage }));
+          console.log(`[WS] delivered to receiver user_id=${rid}`);
+        } else {
+          console.log(`[WS] receiver user_id=${rid} not connected (connectedClients=${[...connectedClients.keys()].join(',')})`);
         }
       }
     } catch (err) {
-      console.error('WebSocket message error:', err);
+      console.error('[WS] error:', err);
     }
   });
-  
+
   ws.on('close', () => {
     if (userId) {
       connectedClients.delete(userId);
+      console.log(`[WS] disconnected: user_id=${userId}, connected clients=${connectedClients.size}`);
     }
   });
 });
