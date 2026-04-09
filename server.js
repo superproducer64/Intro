@@ -359,20 +359,40 @@ app.get('/api/profiles', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     const userId = token ? userTokens.get(token) : req.query.exclude_user_id;
-    let query = 'SELECT p.id, p.user_id, p.name, p.bio FROM profiles p';
+
+    let query = `
+      SELECT u.id, u.name, u.email, u.age, u.bio, u.photo_url,
+             u.personality_type, u.looking_for, u.location
+      FROM users u
+      WHERE u.name IS NOT NULL AND u.age IS NOT NULL
+    `;
     let params = [];
-    
+
     if (userId) {
-      query += ` WHERE (p.user_id IS NULL OR p.user_id != $1)
-        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT blocked_user_id FROM blocks WHERE blocker_id = $1))
-        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_user_id = $1))
-        AND (p.user_id IS NULL OR p.user_id NOT IN (SELECT passed_user_id FROM passes WHERE passer_id = $1))`;
+      query += ` AND u.id != $1
+        AND u.id NOT IN (SELECT blocked_user_id FROM blocks WHERE blocker_id = $1)
+        AND u.id NOT IN (SELECT blocker_id FROM blocks WHERE blocked_user_id = $1)
+        AND u.id NOT IN (SELECT passed_user_id FROM passes WHERE passer_id = $1)`;
       params.push(userId);
     }
-    
-    query += ' ORDER BY p.sort_order';
+
+    query += ' ORDER BY u.id';
     const result = await pool.query(query, params);
-    res.json(result.rows);
+
+    const profiles = result.rows.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      age: u.age,
+      bio: u.bio ?? '',
+      photos: u.photo_url ? [u.photo_url] : [],
+      prompts: [],
+      personality_type: u.personality_type ?? null,
+      looking_for: u.looking_for ?? null,
+      location: u.location ?? null
+    }));
+
+    res.json(profiles);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch profiles' });
   }
