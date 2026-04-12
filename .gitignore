@@ -2,6 +2,9 @@
 node_modules/
 mobile/node_modules/
 
+# User-uploaded photos (runtime artifacts, not source)
+public/uploads/
+
 # Expo
 mobile/.expo/
 mobile/dist/
