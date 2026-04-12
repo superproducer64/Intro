@@ -84,10 +84,16 @@ cd mobile && npx expo start
 - POST /api/prompts - Save user's prompt answers
 - GET /api/prompts/:userId - Get user's prompts
 
-### Safety
+### Safety & Moderation
 - POST /api/report - Report a user
 - POST /api/block - Block a user (removes match/likes)
+- GET /api/reports - List all reports (admin only, requires ADMIN_PASSWORD)
 - DELETE /api/account - Delete account and wipe all data
+
+### Photos
+- POST /api/profile/photo - Upload profile photo (multipart/form-data, field: photo)
+  - Stores file at public/uploads/photos/<userId>-<timestamp>.<ext>
+  - Returns { photoUrl, user }
 
 ### Other
 - GET /api/messages/:matchUserId - Get chat messages
@@ -96,7 +102,21 @@ cd mobile && npx expo start
 - POST /api/hyperbeam/create - Create streaming session
 - Admin endpoints (requires ADMIN_PASSWORD)
 
+## Canonical User Shape
+All auth and profile endpoints return a consistent user object:
+```json
+{ "id": 1, "name": "...", "email": "...", "age": 25, "bio": "...", "photos": ["url"], "prompts": [{"prompt": "...", "answer": "..."}] }
+```
+Built by the `buildUserShape(userId)` helper in server.js.
+
 ## Recent Changes
+- April 2026: Added GET /api/reports (admin moderation list with status field)
+- April 2026: Added POST /api/profile/photo (multer file upload, stores to public/uploads/photos/)
+- April 2026: Standardized all user-returning endpoints to use buildUserShape() helper
+- April 2026: Added status column to reports table
+- April 2026: Fixed WebSocket auth to include DB fallback; flattened WS message payload to camelCase
+- April 2026: Fixed /api/matches, /api/like, /api/messages response shapes for Swift client
+- April 2026: Persisted auth tokens to sessions table (survives server restarts)
 - March 2026: Built React Native/Expo mobile app with full feature parity
 - March 2026: Added safety features (report, block, delete account)
 - March 2026: Added prompt-based matching system

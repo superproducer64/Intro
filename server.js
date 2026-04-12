@@ -5,6 +5,8 @@ const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const http = require('http');
 const WebSocket = require('ws');
+const multer = require('multer');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -141,6 +143,8 @@ async function initDB() {
     )
   `);
 
+  await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'open'`);
+
   const sessions = await pool.query('SELECT token, user_id FROM sessions');
   for (const row of sessions.rows) {
     userTokens.set(row.token, row.user_id);
@@ -165,6 +169,48 @@ initDB().then(() => {
 }).catch((err) => {
   console.error('Database initialization error:', err.message);
 });
+
+// ── Photo upload ──────────────────────────────────────────────
+const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads', 'photos');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const photoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${req.userId || 'tmp'}-${Date.now()}${ext}`);
+  },
+});
+const photoUpload = multer({
+  storage: photoStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    cb(null, file.mimetype.startsWith('image/'));
+  },
+});
+
+// ── Canonical user shape ──────────────────────────────────────
+async function buildUserShape(userId) {
+  const u = await pool.query(
+    'SELECT id, name, email, age, bio, photo_url FROM users WHERE id = $1',
+    [userId]
+  );
+  if (u.rows.length === 0) return null;
+  const user = u.rows[0];
+  const p = await pool.query(
+    'SELECT prompt_question AS prompt, prompt_answer AS answer FROM prompts WHERE user_id = $1 ORDER BY id',
+    [userId]
+  );
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    age: user.age,
+    bio: user.bio ?? '',
+    photos: user.photo_url ? [user.photo_url] : [],
+    prompts: p.rows,
+  };
+}
 
 function verifyAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
@@ -280,11 +326,8 @@ app.post('/api/auth/register', async (req, res) => {
     userTokens.set(token, userId);
     await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, userId]);
 
-    res.json({ 
-      success: true, 
-      token, 
-      user: { id: userId, name: name.trim(), email: email.toLowerCase(), age: age || null, bio: bio || '' } 
-    });
+    const user = await buildUserShape(userId);
+    res.json({ success: true, token, user });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed' });
@@ -319,8 +362,8 @@ app.post('/api/auth/login', async (req, res) => {
     userTokens.set(token, user.id);
     await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, user.id]);
 
-    delete user.password;
-    res.json({ token, user });
+    const userShape = await buildUserShape(user.id);
+    res.json({ token, user: userShape });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
@@ -443,10 +486,39 @@ app.post('/api/report', verifyUser, async (req, res) => {
       'INSERT INTO reports (reporter_id, reported_user_id, reason, details) VALUES ($1, $2, $3, $4)',
       [req.userId, reportedUserId, reason, details || '']
     );
-    res.json({ success: true, message: 'Report submitted' });
+    res.json({ message: 'Report submitted' });
   } catch (error) {
     console.error('Report error:', error);
     res.status(500).json({ error: 'Failed to submit report' });
+  }
+});
+
+app.get('/api/reports', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT r.id, r.reported_user_id, ru.name AS reported_user_name,
+              r.reporter_id, rep.name AS reporter_name,
+              r.reason, r.details, r.status, r.created_at
+       FROM reports r
+       JOIN users ru ON ru.id = r.reported_user_id
+       JOIN users rep ON rep.id = r.reporter_id
+       ORDER BY r.created_at DESC`
+    );
+    const reports = result.rows.map(row => ({
+      id: row.id,
+      reportedUserId: row.reported_user_id,
+      reportedUserName: row.reported_user_name,
+      reporterUserId: row.reporter_id,
+      reporterUserName: row.reporter_name,
+      reason: row.reason,
+      details: row.details,
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+    res.json(reports);
+  } catch (error) {
+    console.error('Reports fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch reports' });
   }
 });
 
@@ -586,20 +658,12 @@ app.get('/api/matches', verifyUser, async (req, res) => {
        ORDER BY matched_at DESC`,
       [uid]
     );
-    const matches = result.rows.map(row => ({
+    const matches = await Promise.all(result.rows.map(async row => ({
       id: row.match_id,
       matchedAt: row.matched_at,
       lastMessage: null,
-      user: {
-        id: row.user_id,
-        name: row.name,
-        email: row.email || null,
-        age: row.age,
-        bio: row.bio,
-        photos: [],
-        prompts: [],
-      },
-    }));
+      user: await buildUserShape(row.user_id),
+    })));
     res.json(matches);
   } catch (error) {
     console.error('Matches fetch error:', error);
@@ -619,7 +683,8 @@ app.post('/api/auth/apple', async (req, res) => {
       const token = crypto.randomBytes(32).toString('hex');
       userTokens.set(token, user.id);
       await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, user.id]);
-      return res.json({ token, user, isNewUser: false });
+      const userShape = await buildUserShape(user.id);
+      return res.json({ token, user: userShape, isNewUser: false });
     }
     const userEmail = email || `${appleId}@apple.privaterelay`;
     const userName = name || 'Intro User';
@@ -637,11 +702,8 @@ app.post('/api/auth/apple', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     userTokens.set(token, userId);
     await pool.query('INSERT INTO sessions (token, user_id) VALUES ($1, $2)', [token, userId]);
-    res.json({
-      token,
-      user: { id: userId, name: userName, email: userEmail },
-      isNewUser: true
-    });
+    const userShape = await buildUserShape(userId);
+    res.json({ token, user: userShape, isNewUser: true });
   } catch (error) {
     console.error('Apple auth error:', error);
     res.status(500).json({ error: 'Apple sign-in failed' });
@@ -669,17 +731,8 @@ app.put('/api/profile', verifyUser, async (req, res) => {
         await pool.query('INSERT INTO interests (user_id, interest) VALUES ($1, $2)', [req.userId, interest]);
       }
     }
-    const user = await pool.query(
-      'SELECT id, name, email, age, bio, photo_url, personality_type, looking_for, location FROM users WHERE id = $1',
-      [req.userId]
-    );
-    const updatedInterests = await pool.query('SELECT interest FROM interests WHERE user_id = $1', [req.userId]);
-    const updatedPrompts = await pool.query('SELECT prompt_question, prompt_answer FROM prompts WHERE user_id = $1 ORDER BY id', [req.userId]);
-    res.json({
-      ...user.rows[0],
-      interests: updatedInterests.rows.map(r => r.interest),
-      prompts: updatedPrompts.rows
-    });
+    const userShape = await buildUserShape(req.userId);
+    res.json(userShape);
   } catch (error) {
     console.error('Profile update error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
@@ -688,22 +741,27 @@ app.put('/api/profile', verifyUser, async (req, res) => {
 
 app.get('/api/profile', verifyUser, async (req, res) => {
   try {
-    const user = await pool.query(
-      'SELECT id, name, email, age, bio, photo_url, personality_type, looking_for, location FROM users WHERE id = $1',
-      [req.userId]
-    );
-    if (user.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const userShape = await buildUserShape(req.userId);
+    if (!userShape) return res.status(404).json({ error: 'User not found' });
     const interests = await pool.query('SELECT interest FROM interests WHERE user_id = $1', [req.userId]);
-    const prompts = await pool.query('SELECT prompt_question, prompt_answer FROM prompts WHERE user_id = $1 ORDER BY id', [req.userId]);
-    res.json({
-      ...user.rows[0],
-      interests: interests.rows.map(r => r.interest),
-      prompts: prompts.rows
-    });
+    res.json({ ...userShape, interests: interests.rows.map(r => r.interest) });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+app.post('/api/profile/photo', verifyUser, photoUpload.single('photo'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No photo uploaded' });
+  }
+  try {
+    const photoUrl = `/uploads/photos/${req.file.filename}`;
+    await pool.query('UPDATE users SET photo_url = $1 WHERE id = $2', [photoUrl, req.userId]);
+    const user = await buildUserShape(req.userId);
+    res.json({ photoUrl, user });
+  } catch (error) {
+    console.error('Photo upload error:', error);
+    res.status(500).json({ error: 'Failed to upload photo' });
   }
 });
 
