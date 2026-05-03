@@ -522,6 +522,28 @@ app.get('/api/reports', verifyAdmin, async (req, res) => {
   }
 });
 
+app.patch('/api/reports/:id', verifyAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const allowed = ['open', 'resolved', 'escalated', 'dismissed'];
+  if (!allowed.includes(status)) {
+    return res.status(400).json({ error: 'Invalid status value' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE reports SET status = $1 WHERE id = $2 RETURNING id, status',
+      [status, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Report update error:', error);
+    res.status(500).json({ error: 'Failed to update report' });
+  }
+});
+
 app.post('/api/block', verifyUser, async (req, res) => {
   const { blockedUserId } = req.body;
   if (!blockedUserId) {

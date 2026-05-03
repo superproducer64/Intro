@@ -151,6 +151,36 @@
     .hidden { display: none; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-open { background: #f59e0b22; color: #f59e0b; border: 1px solid #f59e0b55; }
+    .status-resolved { background: #10b98122; color: #10b981; border: 1px solid #10b98155; }
+    .status-escalated { background: #ef444422; color: #ef4444; border: 1px solid #ef444455; }
+    .status-dismissed { background: #6b728022; color: #9ca3af; border: 1px solid #6b728055; }
+    .report-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; border-radius: 6px; }
+    .btn-resolve { background: linear-gradient(135deg, #10b981, #059669); }
+    .btn-escalate { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .btn-dismiss { background: var(--surface-light); color: var(--text-secondary); }
+    .report-detail { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
+    .filter-bar select {
+      background: var(--surface);
+      color: var(--text);
+      border: 2px solid var(--surface-light);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 0;
+    }
+    .filter-bar select:focus { outline: none; border-color: var(--primary); }
+    .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); }
   </style>
 </head>
 <body>
@@ -170,6 +200,7 @@
       <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
       <button class="tab-btn" data-tab="profiles">Profiles</button>
       <button class="tab-btn" data-tab="signups">Signups</button>
+      <button class="tab-btn" data-tab="reports">Reports <span id="openReportsBadge" class="badge" style="display:none;margin-left:6px;background:#f59e0b"></span></button>
     </div>
 
     <div id="dashboard" class="tab-content active">
@@ -225,10 +256,31 @@
         </table>
       </div>
     </div>
+
+    <div id="reports" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">User Reports</span>
+          <button onclick="loadReports()">Refresh</button>
+        </div>
+        <div class="filter-bar">
+          <label for="statusFilter" style="color:var(--text-secondary);font-size:14px;">Filter by status:</label>
+          <select id="statusFilter" onchange="renderReports()">
+            <option value="all">All</option>
+            <option value="open" selected>Open</option>
+            <option value="escalated">Escalated</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+        </div>
+        <div id="reportsContainer"></div>
+      </div>
+    </div>
   </div>
 
   <script>
     let profiles = [];
+    let allReports = [];
     const ADMIN_KEY = 'intro_admin_auth';
 
     async function login() {
@@ -283,6 +335,87 @@
       if (profilesRes.ok) {
         profiles = await profilesRes.json();
         renderProfiles();
+      }
+
+      await loadReports();
+    }
+
+    async function loadReports() {
+      const token = getToken();
+      try {
+        const res = await fetch('/api/reports', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+          allReports = await res.json();
+          renderReports();
+          const openCount = allReports.filter(r => r.status === 'open').length;
+          const badge = document.getElementById('openReportsBadge');
+          if (openCount > 0) {
+            badge.textContent = openCount;
+            badge.style.display = 'inline';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load reports', e);
+      }
+    }
+
+    function renderReports() {
+      const filter = document.getElementById('statusFilter').value;
+      const filtered = filter === 'all' ? allReports : allReports.filter(r => r.status === filter);
+      const container = document.getElementById('reportsContainer');
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state">No reports found.</div>';
+        return;
+      }
+      container.innerHTML = filtered.map(r => `
+        <div class="card" id="report-card-${r.id}" style="border-left: 3px solid ${statusColor(r.status)}">
+          <div class="card-header">
+            <div>
+              <span class="card-title">${escHtml(r.reporterUserName)} reported ${escHtml(r.reportedUserName)}</span>
+              <div class="report-detail">Reason: <strong>${escHtml(r.reason)}</strong> &bull; ${new Date(r.createdAt).toLocaleString()}</div>
+              ${r.details ? `<div class="report-detail" style="margin-top:6px">"${escHtml(r.details)}"</div>` : ''}
+            </div>
+            <span class="status-badge status-${r.status}">${r.status}</span>
+          </div>
+          <div class="report-actions">
+            ${r.status !== 'resolved' ? `<button class="btn-sm btn-resolve" onclick="updateReport(${r.id}, 'resolved')">Mark Resolved</button>` : ''}
+            ${r.status !== 'escalated' ? `<button class="btn-sm btn-escalate" onclick="updateReport(${r.id}, 'escalated')">Escalate</button>` : ''}
+            ${r.status !== 'dismissed' ? `<button class="btn-sm btn-dismiss" onclick="updateReport(${r.id}, 'dismissed')">Dismiss</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function statusColor(status) {
+      return { open: '#f59e0b', resolved: '#10b981', escalated: '#ef4444', dismissed: '#6b7280' }[status] || '#7c3aed';
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function updateReport(id, status) {
+      const token = getToken();
+      try {
+        const res = await fetch(`/api/reports/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ status })
+        });
+        if (res.ok) {
+          const idx = allReports.findIndex(r => r.id === id);
+          if (idx !== -1) allReports[idx].status = status;
+          renderReports();
+          const openCount = allReports.filter(r => r.status === 'open').length;
+          const badge = document.getElementById('openReportsBadge');
+          if (openCount > 0) { badge.textContent = openCount; badge.style.display = 'inline'; }
+          else { badge.style.display = 'none'; }
+        }
+      } catch (e) {
+        alert('Failed to update report. Please try again.');
       }
     }
 
