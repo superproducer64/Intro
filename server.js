@@ -254,6 +254,18 @@ app.use((req, res, next) => {
 app.use(express.static('public', { etag: false, lastModified: false }));
 app.use(express.json());
 
+app.get('/download/build-script', (req, res) => {
+  res.setHeader('Content-Disposition', 'attachment; filename="intro-build.command"');
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.sendFile(path.join(__dirname, 'public', 'intro-build.command'));
+});
+
+app.get('/download/ios-project', (req, res) => {
+  res.setHeader('Content-Disposition', 'attachment; filename="intro-ios.tar.gz"');
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.sendFile(path.join(__dirname, 'public', 'intro-ios.tar.gz'));
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
