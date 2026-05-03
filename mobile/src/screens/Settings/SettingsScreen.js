@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Linking } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
 
@@ -67,13 +67,25 @@ export default function SettingsScreen({ navigation }) {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionTitle}>Legal</Text>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('PrivacyPolicy')}>
           <Text style={styles.menuText}>Privacy Policy</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('TermsOfService')}>
-          <Text style={styles.menuText}>Terms of Service</Text>
+          <Text style={styles.menuText}>Terms of Service & Community Guidelines</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Support</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL('mailto:privacy@bgpstudios.com')}>
+          <Text style={styles.menuText}>Contact Support</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('TermsOfService')}>
+          <Text style={styles.menuText}>Report Abuse</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
       </View>
