@@ -6,75 +6,79 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @ObservedObject private var api = APIService.shared
+    @State private var showSplash = true
+    @State private var splashOpacity = 1.0
+    @State private var showEULA = !UserDefaults.standard.bool(forKey: "hasAcceptedEULA")
+    @State private var hasSeenIntro = UserDefaults.standard.bool(forKey: "hasSeenSignupIntro")
+    
     var body: some View {
-        NavigationViewWrapper {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
+        ZStack {
+            // Main content
+            if api.isAuthenticated {
+                if api.hasCompletedProfileSetup {
+                    IntroMainTabView()
+                } else {
+                    ProfileSetupScreen()
                 }
-                .onDelete(perform: deleteItems)
-            }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
-            .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+            } else {
+                if hasSeenIntro {
+                    LoginScreen()
+                } else {
+                    IntroView(hasSeenIntro: $hasSeenIntro)
                 }
             }
+            
+            // Splash screen
+            if showSplash {
+                SplashScreen(opacity: splashOpacity)
+                    .onTapGesture {
+                        withAnimation {
+                            showSplash = false
+                        }
+                    }
+            }
+            
+            // EULA overlay
+            if showEULA {
+                EULAView(isPresented: $showEULA)
+            }
         }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+        .onAppear {
+            // Auto-hide splash after 1.5 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    showSplash = false
+                }
             }
         }
     }
 }
 
-fileprivate struct NavigationViewWrapper<Content: View>: View {
-    let content: () -> Content
-
+struct SplashScreen: View {
+    let opacity: Double
+    
     var body: some View {
-#if os(macOS)
-        NavigationSplitView {
-            content()
-        } detail: {
-            Text("Select an item")
+        ZStack {
+            AppColors.bg.ignoresSafeArea()
+            
+            VStack(spacing: 12) {
+                Text("INTRO")
+                    .font(.system(size: 56, weight: .bold))
+                    .foregroundStyle(AppColors.primary)
+                    .kerning(12)
+                
+                Text("Dating for Introverts")
+                    .font(.system(size: 18))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
         }
-#else
-        content()
-#endif
+        .opacity(opacity)
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }

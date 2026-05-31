@@ -1,0 +1,11 @@
+# Local Xcode state
+xcuserdata/
+*.xcuserstate
+WorkspaceSettings.xcsettings
+
+# Build products
+build/
+DerivedData/
+
+# macOS
+.DS_Store

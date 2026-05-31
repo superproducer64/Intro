@@ -6,27 +6,106 @@
 //
 
 import SwiftUI
-import SwiftData
+import UIKit
+import UserNotifications
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        APIService.shared.updatePushDeviceToken(token)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        #if DEBUG
+        print("APNs registration failed: \(error.localizedDescription)")
+        #endif
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .badge]
+    }
+}
+
+@MainActor
+private enum PushNotificationManager {
+    static func requestAuthorizationIfNeeded() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            guard settings.authorizationStatus == .notDetermined else {
+                if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+                    DispatchQueue.main.async {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                }
+                return
+            }
+
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+                if let error {
+                    #if DEBUG
+                    print("Notification permission request failed: \(error.localizedDescription)")
+                    #endif
+                }
+
+                guard granted else {
+                    return
+                }
+
+                DispatchQueue.main.async {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
+    }
+}
 
 @main
 struct IntroApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
-
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var api = APIService.shared
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear {
+                    if api.isAuthenticated {
+                        PushNotificationManager.requestAuthorizationIfNeeded()
+                    }
+                }
         }
-        .modelContainer(sharedModelContainer)
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .active:
+                if api.isAuthenticated {
+                    api.connectWS()
+                    PushNotificationManager.requestAuthorizationIfNeeded()
+                }
+            case .background:
+                api.disconnectWS()
+            case .inactive:
+                break
+            @unknown default:
+                break
+            }
+        }
+        .onChange(of: api.isAuthenticated) { _, isAuthenticated in
+            if isAuthenticated {
+                api.connectWS()
+                PushNotificationManager.requestAuthorizationIfNeeded()
+            } else {
+                api.disconnectWS()
+            }
+        }
     }
 }

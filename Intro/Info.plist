@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BACKEND_MODE</key>
+	<string>supabaseAuthProfile</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>SUPABASE_STORAGE_BUCKET</key>
+	<string>profile-photos</string>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>sb_publishable_6HoN1p7hnp6AauKsvhfz3A_1xzI9I9Z</string>
+	<key>SUPABASE_URL</key>
+	<string>https://mryeofmyqibadeiostsg.supabase.co</string>
+</dict>
+</plist>
