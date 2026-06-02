@@ -1,6 +1,6 @@
-// src/services/api.js
 import * as SecureStore from 'expo-secure-store';
 
+const DEV_DOMAIN = '70938a94-157f-4b05-b6f7-ac9b7fc375b2-00-34ozt3aky4587.riker.replit.dev';
 const API_URL = 'https://intro-bgpstudioshou.replit.app';
 const WS_URL = 'wss://intro-bgpstudioshou.replit.app';
 
@@ -43,13 +43,10 @@ export function getUser() { return currentUser; }
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-
   const url = `${API_URL}${path}`;
   console.log(`API Request: ${options.method || 'GET'} ${url}`);
-
   const res = await fetch(url, { ...options, headers });
   const text = await res.text();
-
   let data;
   try {
     data = JSON.parse(text);
@@ -57,12 +54,10 @@ async function request(path, options = {}) {
     console.error('API returned non-JSON:', text.substring(0, 200));
     throw new Error('Server returned an invalid response. Please try again.');
   }
-
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;
 }
 
-// ==================== AUTH ====================
 export async function register({ name, email, password, age, bio }) {
   const data = await request('/api/auth/register', {
     method: 'POST',
@@ -90,42 +85,25 @@ export async function appleSignIn(appleId, name, email) {
   return data;
 }
 
-// ==================== MATCHING ====================
 export async function getProfiles() {
-  return request('/api/match/profiles');
+  return request('/api/profiles');
 }
 
 export async function likeUser(likedUserId) {
-  return request('/api/match/like', {
+  return request('/api/like', {
     method: 'POST',
     body: JSON.stringify({ likedUserId }),
   });
 }
 
 export async function getMatches() {
-  return request('/api/match/matches');
+  return request('/api/matches');
 }
 
-// ==================== CAFÉ ====================
-export async function getCafeRooms() {
-  return request('/api/cafe/rooms');
+export async function getMessages(matchUserId) {
+  return request(`/api/messages/${matchUserId}`);
 }
 
-export async function createCafeRoom(data) {
-  return request('/api/cafe/rooms', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function createHyperbeamSession(url) {
-  return request('/api/cafe/hyperbeam/create', {
-    method: 'POST',
-    body: JSON.stringify({ url }),
-  });
-}
-
-// ==================== OTHER ====================
 export async function getProfile() {
   return request('/api/profile');
 }
@@ -137,26 +115,56 @@ export async function updateProfile(data) {
   });
 }
 
-export async function getMessages(matchUserId) {
-  return request(`/api/messages/${matchUserId}`);
+export async function savePrompts(prompts) {
+  return request('/api/prompts', {
+    method: 'POST',
+    body: JSON.stringify({ prompts }),
+  });
+}
+
+export async function getPrompts(userId) {
+  return request(`/api/prompts/${userId}`);
+}
+
+export async function reportUser(reportedUserId, reason, details) {
+  return request('/api/report', {
+    method: 'POST',
+    body: JSON.stringify({ reportedUserId, reason, details }),
+  });
+}
+
+export async function blockUser(blockedUserId) {
+  return request('/api/block', {
+    method: 'POST',
+    body: JSON.stringify({ blockedUserId }),
+  });
+}
+
+export async function deleteAccount() {
+  const data = await request('/api/account', { method: 'DELETE' });
+  await clearAuth();
+  return data;
+}
+
+export async function createHyperbeamSession(url) {
+  return request('/api/hyperbeam/create', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  });
 }
 
 export function connectWS(onMessage) {
   if (wsConnection) wsConnection.close();
   wsConnection = new WebSocket(WS_URL);
-
   wsConnection.onopen = () => {
-    if (authToken) {
-      wsConnection.send(JSON.stringify({ type: 'auth', token: authToken }));
-    }
+    wsConnection.send(JSON.stringify({ type: 'auth', token: authToken }));
   };
-
   wsConnection.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (onMessage) onMessage(data);
     messageListeners.forEach(fn => fn(data));
   };
-
+  wsConnection.onerror = (e) => console.error('WS error:', e);
   wsConnection.onclose = () => {
     setTimeout(() => {
       if (authToken) connectWS(onMessage);

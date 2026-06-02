@@ -1,121 +1,108 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, TextInput, Alert } from 'react-native';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
+// src/screens/Experiences/ExperiencesScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, Alert, Image } from 'react-native';
 import * as api from '../../services/api';
 
-const EXPERIENCES = [
-  { id: 'cafe', title: 'Virtual Cafe', icon: '☕', desc: 'Share a quiet coffee date from home', status: 'coming_soon' },
-  { id: 'movie', title: 'Movie Night', icon: '🎬', desc: 'Watch together in a shared virtual theater', status: 'available', url: 'https://www.youtube.com' },
-  { id: 'gaming', title: 'Gaming', icon: '🎮', desc: 'Play casual games together online', status: 'available', url: 'https://www.crazygames.com' },
-  { id: 'book', title: 'Book Club', icon: '📚', desc: 'Discuss your favorite reads together', status: 'coming_soon' },
-];
+const ExperiencesScreen = () => {
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-export default function ExperiencesScreen() {
-  const [selected, setSelected] = useState(null);
-  const [notifyName, setNotifyName] = useState('');
-  const [notifyEmail, setNotifyEmail] = useState('');
-
-  const handleLaunch = async (exp) => {
+  const loadRooms = async () => {
     try {
-      const session = await api.createHyperbeamSession(exp.url);
-      Alert.alert('Session Created', 'Your virtual experience is ready! Share the link with your match.');
-    } catch (e) {
-      Alert.alert('Error', e.message);
+      const data = await api.getCafeRooms();
+      setRooms(data.rooms || []);
+    } catch (error) {
+      console.error(error);
+      // Don't show error for now - graceful fallback
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleNotify = async () => {
-    if (!notifyName || !notifyEmail) {
-      Alert.alert('Error', 'Please fill in your name and email');
-      return;
+  useEffect(() => {
+    loadRooms();
+  }, []);
+
+  const createRoom = async (type) => {
+    const titles = {
+      cafe: "Quiet Café Session",
+      movie: "Movie Night",
+      game: "Game Night"
+    };
+
+    try {
+      await api.createCafeRoom({
+        title: titles[type],
+        type
+      });
+      Alert.alert("Room Created!", "Your room is now open. Share with friends.");
+      loadRooms();
+    } catch (error) {
+      Alert.alert("Error", "Failed to create room. Please try again.");
     }
-    Alert.alert('Success', "We'll notify you when this experience launches!");
-    setSelected(null);
-    setNotifyName('');
-    setNotifyEmail('');
+  };
+
+  const launchMovieNight = async () => {
+    try {
+      const response = await api.createHyperbeamSession("https://www.youtube.com");
+      Alert.alert("Hyperbeam Ready", "Opening virtual theater...\n\n" + (response.embed_url || "Check console"));
+      // TODO: Open in WebView later
+    } catch (error) {
+      Alert.alert("Error", "Could not start movie session");
+    }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
-      <Text style={styles.header}>Experiences</Text>
-      <Text style={styles.subtitle}>Virtual activities to enjoy together</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: '#1A1A2E', padding: 20, paddingTop: 60 }}>
+      <Text style={{ fontSize: 32, fontWeight: '300', color: 'white', marginBottom: 8 }}>Experiences</Text>
+      <Text style={{ fontSize: 18, color: '#AAA', marginBottom: 30 }}>
+        Virtual activities to enjoy together
+      </Text>
 
-      <View style={styles.grid}>
-        {EXPERIENCES.map(exp => (
-          <TouchableOpacity key={exp.id} style={styles.card} onPress={() => setSelected(exp)}>
-            <Text style={styles.cardIcon}>{exp.icon}</Text>
-            <Text style={styles.cardTitle}>{exp.title}</Text>
-            <Text style={styles.cardDesc}>{exp.desc}</Text>
-            {exp.status === 'coming_soon' && (
-              <View style={styles.badge}><Text style={styles.badgeText}>Coming Soon</Text></View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
+      {/* Virtual Café */}
+      <Pressable 
+        onPress={() => createRoom('cafe')}
+        style={{ backgroundColor: '#2A2A4A', borderRadius: 20, padding: 20, marginBottom: 16 }}
+      >
+        <Text style={{ fontSize: 28 }}>☕</Text>
+        <Text style={{ fontSize: 22, color: 'white', marginTop: 8 }}>Virtual Café</Text>
+        <Text style={{ color: '#CCC', marginTop: 4 }}>Share a quiet coffee date from home</Text>
+      </Pressable>
 
-      <Modal visible={!!selected} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modal}>
-            {selected && (
-              <>
-                <Text style={styles.modalIcon}>{selected.icon}</Text>
-                <Text style={styles.modalTitle}>{selected.title}</Text>
-                <Text style={styles.modalDesc}>{selected.desc}</Text>
+      {/* Movie Night */}
+      <Pressable 
+        onPress={launchMovieNight}
+        style={{ backgroundColor: '#2A2A4A', borderRadius: 20, padding: 20, marginBottom: 16 }}
+      >
+        <Text style={{ fontSize: 28 }}>🎥</Text>
+        <Text style={{ fontSize: 22, color: 'white', marginTop: 8 }}>Movie Night</Text>
+        <Text style={{ color: '#CCC', marginTop: 4 }}>Watch together in a shared virtual theater</Text>
+      </Pressable>
 
-                {selected.status === 'available' ? (
-                  <TouchableOpacity style={styles.launchBtn} onPress={() => handleLaunch(selected)}>
-                    <Text style={styles.launchText}>Launch Experience</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.notifyForm}>
-                    <Text style={styles.notifyLabel}>Get notified when it's ready</Text>
-                    <TextInput style={styles.input} placeholder="Name" placeholderTextColor={COLORS.textMuted} value={notifyName} onChangeText={setNotifyName} />
-                    <TextInput style={styles.input} placeholder="Email" placeholderTextColor={COLORS.textMuted} value={notifyEmail} onChangeText={setNotifyEmail} keyboardType="email-address" autoCapitalize="none" />
-                    <TouchableOpacity style={styles.notifyBtn} onPress={handleNotify}>
-                      <Text style={styles.notifyBtnText}>Notify Me</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+      {/* Game Night */}
+      <Pressable 
+        onPress={() => createRoom('game')}
+        style={{ backgroundColor: '#2A2A4A', borderRadius: 20, padding: 20 }}
+      >
+        <Text style={{ fontSize: 28 }}>🎲</Text>
+        <Text style={{ fontSize: 22, color: 'white', marginTop: 8 }}>Game Night</Text>
+        <Text style={{ color: '#CCC', marginTop: 4 }}>Play casual games together online</Text>
+      </Pressable>
 
-                <TouchableOpacity style={styles.closeBtn} onPress={() => setSelected(null)}>
-                  <Text style={styles.closeText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+      {/* Active Rooms */}
+      {rooms.length > 0 && (
+        <View style={{ marginTop: 40 }}>
+          <Text style={{ fontSize: 20, color: 'white', marginBottom: 12 }}>Happening Now</Text>
+          {rooms.map(room => (
+            <View key={room.id} style={{ backgroundColor: '#16213E', padding: 16, borderRadius: 16, marginBottom: 12 }}>
+              <Text style={{ color: 'white', fontSize: 18 }}>{room.title}</Text>
+              <Text style={{ color: '#888' }}>Hosted by {room.host_name || 'Someone'}</Text>
+            </View>
+          ))}
         </View>
-      </Modal>
+      )}
     </ScrollView>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: { padding: SPACING.lg, paddingTop: SPACING.xxl },
-  header: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, textAlign: 'center' },
-  subtitle: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.xl },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
-  card: {
-    width: '47%', backgroundColor: COLORS.bgLight, borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
-  },
-  cardIcon: { fontSize: 36, marginBottom: SPACING.sm },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
-  cardDesc: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
-  badge: { backgroundColor: COLORS.secondary, borderRadius: BORDER_RADIUS.sm, paddingHorizontal: 8, paddingVertical: 2, alignSelf: 'flex-start', marginTop: SPACING.sm },
-  badgeText: { fontSize: 11, color: COLORS.text },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modal: { backgroundColor: COLORS.bgLight, borderTopLeftRadius: BORDER_RADIUS.xl, borderTopRightRadius: BORDER_RADIUS.xl, padding: SPACING.xl, alignItems: 'center' },
-  modalIcon: { fontSize: 56, marginBottom: SPACING.md },
-  modalTitle: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.sm },
-  modalDesc: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
-  launchBtn: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xxl, marginBottom: SPACING.md },
-  launchText: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
-  notifyForm: { width: '100%', gap: SPACING.sm },
-  notifyLabel: { color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.sm },
-  input: { backgroundColor: COLORS.inputBg, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, color: COLORS.text, fontSize: 15, borderWidth: 1, borderColor: COLORS.border },
-  notifyBtn: { backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, alignItems: 'center' },
-  notifyBtnText: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
-  closeBtn: { marginTop: SPACING.md, padding: SPACING.sm },
-  closeText: { color: COLORS.textMuted, fontSize: 15 },
-});
+export default ExperiencesScreen;
