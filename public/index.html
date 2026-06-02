@@ -3,95 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Intro • Dating for Introverts</title>
+  <title>Intro • Calm Dating</title>
   <style>
-    body { 
-      font-family: system-ui, -apple-system, sans-serif; 
-      background: #F8F5F2; 
-      margin: 0; 
-      padding: 20px; 
-      color: #2C2C2C; 
-      line-height: 1.5;
-    }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #F8F5F2; margin: 0; padding: 20px; color: #2C2C2C; line-height: 1.6; }
     .container { max-width: 640px; margin: 0 auto; }
-    h1 { font-size: 52px; font-weight: 300; text-align: center; margin: 40px 0 8px; letter-spacing: -1px; }
-    .tagline { text-align: center; color: #555; font-size: 21px; margin-bottom: 40px; }
-    .card { 
-      background: white; 
-      border-radius: 24px; 
-      padding: 28px; 
-      margin-bottom: 24px; 
-      box-shadow: 0 4px 25px rgba(0,0,0,0.08); 
-    }
-    button { 
-      width: 100%; 
-      padding: 18px; 
-      margin: 10px 0; 
-      border: none; 
-      border-radius: 999px; 
-      font-size: 18px; 
-      font-weight: 500; 
-      cursor: pointer; 
-    }
+    h1 { font-size: 52px; font-weight: 300; text-align: center; margin: 40px 0 8px; letter-spacing: -2px; }
+    .tagline { text-align: center; color: #666; font-size: 20px; margin-bottom: 40px; }
+    .card { background: white; border-radius: 24px; padding: 28px; margin-bottom: 20px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); }
+    button { width: 100%; padding: 18px; margin: 10px 0; border: none; border-radius: 999px; font-size: 18px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
     .btn-primary { background: #4A7043; color: white; }
-    .btn-secondary { background: #f0f0f0; color: #333; }
-    #output { margin-top: 20px; padding: 20px; background: #fff; border-radius: 16px; font-size: 14px; }
+    .btn-primary:active { transform: scale(0.98); }
+    .status { text-align: center; padding: 12px; background: #E8F5E9; border-radius: 12px; margin-bottom: 20px; font-size: 15px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Intro</h1>
-    <p class="tagline">Calm, intentional dating for introverts</p>
+    <p class="tagline">Intentional dating for introverts</p>
+
+    <div class="status">✅ Connected to Backend • Logged in as Test User</div>
 
     <div class="card">
-      <h2>Discover</h2>
-      <p style="color:#666;">Gentle, thoughtful matches</p>
-      <button class="btn-primary" onclick="loadProfiles()">Find Matches</button>
+      <h2>🌿 Gentle Discover</h2>
+      <button class="btn-primary" onclick="loadProfiles()">Show Thoughtful Matches</button>
     </div>
 
     <div class="card">
       <h2>Quiet Café</h2>
-      <p style="color:#666;">Low-pressure virtual spaces</p>
-      <button class="btn-primary" onclick="createRoom('cafe')">☕ Quiet Café</button>
+      <button class="btn-primary" onclick="createRoom('cafe')">☕ Quiet Café Chat</button>
       <button class="btn-primary" onclick="createRoom('movie')">🎥 Movie Night</button>
       <button class="btn-primary" onclick="createRoom('game')">🎲 Game Night</button>
     </div>
 
-    <div id="output"></div>
+    <div id="result" style="margin-top:20px; padding:20px; background:white; border-radius:16px; min-height:120px; font-size:15px;"></div>
   </div>
 
   <script>
-    const API_URL = 'https://intro-bgpstudioshou.replit.app';
+    const API = 'https://intro-bgpstudioshou.replit.app';
 
     async function loadProfiles() {
       try {
-        const res = await fetch(`${API_URL}/api/match/profiles`);
+        const res = await fetch(API + '/api/match/profiles');
         const data = await res.json();
-        document.getElementById('output').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        document.getElementById('result').innerHTML = '<strong>Matches loaded:</strong><br><pre>' + JSON.stringify(data, null, 2) + '</pre>';
       } catch(e) {
-        document.getElementById('output').innerHTML = `<p style="color:red">Error loading profiles: ${e.message}</p>`;
+        document.getElementById('result').innerHTML = '<span style="color:#d32f2f">Error loading matches: ' + e.message + '</span>';
       }
     }
 
     async function createRoom(type) {
-      const titles = {
-        cafe: "Quiet Café Session",
-        movie: "Movie Night",
-        game: "Game Night"
-      };
+      const titles = { cafe: "Quiet Café", movie: "Movie Night", game: "Game Night" };
       try {
-        const res = await fetch(`${API_URL}/api/cafe/rooms`, {
+        const res = await fetch(API + '/api/cafe/rooms', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            title: titles[type], 
-            type 
-          })
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ type, title: titles[type] })
         });
         const data = await res.json();
-        document.getElementById('output').innerHTML = `<p style="color:green">✅ Room created successfully!</p><pre>${JSON.stringify(data, null, 2)}</pre>`;
+        document.getElementById('result').innerHTML = `✅ ${titles[type]} room created!<br><pre>` + JSON.stringify(data, null, 2) + '</pre>';
       } catch(e) {
-        document.getElementById('output').innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
+        document.getElementById('result').innerHTML = '<span style="color:#d32f2f">Error creating room: ' + e.message + '</span>';
       }
     }
   </script>

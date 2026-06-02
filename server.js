@@ -17,9 +17,13 @@ app.use(helmet());
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 
+// Serve static files from public folder
+app.use(express.static('public'));
+
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use('/api', limiter);
 
+// Routes
 app.use('/api/auth', require('./auth'));
 app.use('/api/profile', require('./profile'));
 app.use('/api/match', require('./match'));
