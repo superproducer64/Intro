@@ -39,11 +39,11 @@
       "expo-asset",
       "expo-web-browser"
     ],
+    "owner": "superproducer64",
     "extra": {
       "eas": {
-        "projectId": "a20334ee-337d-429e-a09a-4a756a24ee17"
+        "projectId": "e6b34b98-b3f4-450a-94f8-69146b0464db"
       }
-    },
-    "owner": "superproducer64"
+    }
   }
 }
