@@ -1,158 +1,67 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Intro • Calm Dating</title>
-  <style>
-    :root {
-      --cream: #F8F5F2;
-      --green: #4A7043;
-      --soft-gray: #E5E0D8;
-    }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--cream);
-      margin: 0;
-      padding: 20px;
-      color: #2C2C2C;
-    }
-    .container { max-width: 640px; margin: 0 auto; }
-    h1 { font-size: 52px; font-weight: 300; text-align: center; margin: 40px 0 8px; }
-    .tagline { text-align: center; color: #666; font-size: 20px; margin-bottom: 40px; }
-    .card { background: white; border-radius: 24px; padding: 28px; margin-bottom: 24px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); }
-    input, button {
-      width: 100%;
-      padding: 16px;
-      margin: 10px 0;
-      border: none;
-      border-radius: 999px;
-      font-size: 17px;
-    }
-    input { background: #f5f5f5; }
-    button { background: var(--green); color: white; font-weight: 500; cursor: pointer; }
-    button:active { transform: scale(0.98); }
-    .toggle { text-align: center; color: #666; cursor: pointer; margin-top: 16px; }
-    .status { padding: 12px; background: #E8F5E9; border-radius: 999px; text-align: center; margin-bottom: 20px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Intro</h1>
-    <p class="tagline">Intentional dating for introverts</p>
+<script>
+  const API = 'https://intro-bgpstudioshou.replit.app';
+  let isLogin = true;
 
-    <div id="auth-screen">
-      <div class="card">
-        <h2 id="auth-title">Sign In</h2>
+  function toggleAuthMode() {
+    isLogin = !isLogin;
+    document.getElementById('auth-title').textContent = isLogin ? 'Sign In' : 'Create Account';
+    document.getElementById('name').style.display = isLogin ? 'none' : 'block';
+  }
 
-        <input type="text" id="name" placeholder="Your name" style="display:none;">
-        <input type="email" id="email" placeholder="Email address">
-        <input type="password" id="password" placeholder="Password">
+  async function handleAuth() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const name = document.getElementById('name').value.trim();
 
-        <button onclick="handleAuth()">Sign In</button>
-
-        <div class="toggle" onclick="toggleAuthMode()">
-          Don't have an account? <strong>Sign up</strong>
-        </div>
-      </div>
-    </div>
-
-    <div id="main-screen" style="display:none;">
-      <div class="status">✅ Logged in successfully</div>
-
-      <div class="card">
-        <h2>🌿 Gentle Discover</h2>
-        <button onclick="loadProfiles()">Show Thoughtful Matches</button>
-      </div>
-
-      <div class="card">
-        <h2>☕ Quiet Café</h2>
-        <button onclick="createRoom('cafe')">Start Quiet Café</button>
-        <button onclick="createRoom('movie')">🎥 Movie Night</button>
-        <button onclick="createRoom('game')">🎲 Game Night</button>
-      </div>
-
-      <div id="result" class="card" style="min-height:120px;"></div>
-    </div>
-  </div>
-
-  <script>
-    const API = 'https://intro-bgpstudioshou.replit.app';
-    let isLogin = true;
-
-    function toggleAuthMode() {
-      isLogin = !isLogin;
-      document.getElementById('auth-title').textContent = isLogin ? 'Sign In' : 'Create Account';
-      document.getElementById('name').style.display = isLogin ? 'none' : 'block';
+    if (!email || !password || (!isLogin && !name)) {
+      alert("Please fill all fields");
+      return;
     }
 
-    async function handleAuth() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const name = document.getElementById('name').value;
-
-      if (!email || !password || (!isLogin && !name)) {
-        alert("Please fill all fields");
-        return;
-      }
-
-      try {
-        let response;
-        if (isLogin) {
-          response = await fetch(API + '/api/auth/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email, password })
-          });
-        } else {
-          response = await fetch(API + '/api/auth/register', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, email, password, age: 28, bio: '' })
-          });
-        }
-
-        const data = await response.json();
-        if (data.token) {
-          alert(isLogin ? "Welcome back!" : "Account created successfully!");
-          document.getElementById('auth-screen').style.display = 'none';
-          document.getElementById('main-screen').style.display = 'block';
-        } else {
-          alert(data.error || "Something went wrong");
-        }
-      } catch(e) {
-        alert("Connection error. Is the backend running?");
-      }
-    }
-
-    async function loadProfiles() {
-      const result = document.getElementById('result');
-      result.innerHTML = 'Loading thoughtful matches...';
-      try {
-        const res = await fetch(API + '/api/match/profiles');
-        const data = await res.json();
-        result.innerHTML = `<strong>Matches loaded:</strong><pre>` + JSON.stringify(data, null, 2) + '</pre>';
-      } catch(e) {
-        result.innerHTML = 'Error loading matches';
-      }
-    }
-
-    async function createRoom(type) {
-      const titles = { cafe: "Quiet Café", movie: "Movie Night", game: "Game Night" };
-      const result = document.getElementById('result');
-      result.innerHTML = `Creating ${titles[type]}...`;
-      try {
-        const res = await fetch(API + '/api/cafe/rooms', {
+    try {
+      let response;
+      if (isLogin) {
+        response = await fetch(API + '/api/auth/login', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ type, title: titles[type] })
+          body: JSON.stringify({ email, password })
         });
-        const data = await res.json();
-        result.innerHTML = `✅ ${titles[type]} room created!`;
-      } catch(e) {
-        result.innerHTML = 'Error creating room';
+      } else {
+        response = await fetch(API + '/api/auth/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name, email, password, age: 28, bio: '' })
+        });
       }
+
+      const data = await response.json();
+      if (data.token) {
+        alert(isLogin ? "Welcome back!" : "Account created successfully!");
+        document.querySelector('.card').style.display = 'none';
+        document.getElementById('main-screen').style.display = 'block';
+      } else {
+        alert(data.error || "Something went wrong");
+      }
+    } catch(e) {
+      alert("Cannot connect to server. Make sure backend is running.");
     }
-  </script>
-</body>
-</html>
+  }
+
+  // Apple Sign In
+  async function appleSignIn() {
+    alert("Apple Sign In triggered!\n\n(This is a demo - in real app it would use Apple's SDK)");
+
+    // Simulate successful login
+    document.querySelector('.card').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'block';
+  }
+
+  // Other functions
+  async function loadProfiles() {
+    alert("Loading gentle matches... (check console for details)");
+  }
+
+  async function createRoom(type) {
+    alert(`Creating ${type} room...`);
+  }
+</script>
