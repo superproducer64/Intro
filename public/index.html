@@ -5,15 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Intro • Calm Dating</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background: #F8F5F2; margin: 0; padding: 20px; color: #2C2C2C; line-height: 1.6; }
-    .container { max-width: 640px; margin: 0 auto; }
-    h1 { font-size: 52px; font-weight: 300; text-align: center; margin: 40px 0 8px; letter-spacing: -2px; }
-    .tagline { text-align: center; color: #666; font-size: 20px; margin-bottom: 40px; }
-    .card { background: white; border-radius: 24px; padding: 28px; margin-bottom: 20px; box-shadow: 0 4px 25px rgba(0,0,0,0.08); }
-    button { width: 100%; padding: 18px; margin: 10px 0; border: none; border-radius: 999px; font-size: 18px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-    .btn-primary { background: #4A7043; color: white; }
-    .btn-primary:active { transform: scale(0.98); }
-    .status { text-align: center; padding: 12px; background: #E8F5E9; border-radius: 12px; margin-bottom: 20px; font-size: 15px; }
+    :root {
+      --cream: #F8F5F2;
+      --green: #4A7043;
+      --soft-gray: #E5E0D8;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--cream);
+      margin: 0;
+      padding: 20px;
+      color: #2C2C2C;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 52px;
+      font-weight: 300;
+      text-align: center;
+      margin: 40px 0 8px;
+      letter-spacing: -2px;
+    }
+    .tagline {
+      text-align: center;
+      color: #666;
+      font-size: 20px;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.08);
+    }
+    button {
+      width: 100%;
+      padding: 18px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 999px;
+      font-size: 18px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--green);
+      color: white;
+    }
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+    .status {
+      text-align: center;
+      padding: 12px 20px;
+      background: #E8F5E9;
+      border-radius: 999px;
+      margin-bottom: 24px;
+      font-size: 15px;
+      color: #2E7D32;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border-radius: 16px;
+      min-height: 120px;
+      font-size: 15px;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -23,36 +87,44 @@
 
     <div class="status">✅ Connected to Backend • Logged in as Test User</div>
 
+    <!-- Discover -->
     <div class="card">
       <h2>🌿 Gentle Discover</h2>
+      <p style="color:#666; margin-bottom:16px;">Thoughtful matches for meaningful connections</p>
       <button class="btn-primary" onclick="loadProfiles()">Show Thoughtful Matches</button>
     </div>
 
+    <!-- Quiet Café -->
     <div class="card">
-      <h2>Quiet Café</h2>
-      <button class="btn-primary" onclick="createRoom('cafe')">☕ Quiet Café Chat</button>
-      <button class="btn-primary" onclick="createRoom('movie')">🎥 Movie Night</button>
-      <button class="btn-primary" onclick="createRoom('game')">🎲 Game Night</button>
+      <h2>☕ Quiet Café</h2>
+      <p style="color:#666; margin-bottom:16px;">Low-pressure spaces to connect</p>
+      <button class="btn-primary" onclick="createRoom('cafe')">Start Quiet Café Chat</button>
+      <button class="btn-primary" onclick="createRoom('movie')">🎥 Start Movie Night</button>
+      <button class="btn-primary" onclick="createRoom('game')">🎲 Start Game Night</button>
     </div>
 
-    <div id="result" style="margin-top:20px; padding:20px; background:white; border-radius:16px; min-height:120px; font-size:15px;"></div>
+    <div id="result" class="result"></div>
   </div>
 
   <script>
     const API = 'https://intro-bgpstudioshou.replit.app';
 
     async function loadProfiles() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = 'Loading thoughtful matches...';
       try {
         const res = await fetch(API + '/api/match/profiles');
         const data = await res.json();
-        document.getElementById('result').innerHTML = '<strong>Matches loaded:</strong><br><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        resultDiv.innerHTML = `<strong>Matches loaded (${data.length || 0}):</strong><br><pre>` + JSON.stringify(data, null, 2) + '</pre>';
       } catch(e) {
-        document.getElementById('result').innerHTML = '<span style="color:#d32f2f">Error loading matches: ' + e.message + '</span>';
+        resultDiv.innerHTML = `<span style="color:#d32f2f">Error: ${e.message}</span>`;
       }
     }
 
     async function createRoom(type) {
       const titles = { cafe: "Quiet Café", movie: "Movie Night", game: "Game Night" };
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = `Creating ${titles[type]}...`;
       try {
         const res = await fetch(API + '/api/cafe/rooms', {
           method: 'POST',
@@ -60,9 +132,9 @@
           body: JSON.stringify({ type, title: titles[type] })
         });
         const data = await res.json();
-        document.getElementById('result').innerHTML = `✅ ${titles[type]} room created!<br><pre>` + JSON.stringify(data, null, 2) + '</pre>';
+        resultDiv.innerHTML = `✅ ${titles[type]} room created successfully!<br><pre>` + JSON.stringify(data, null, 2) + '</pre>';
       } catch(e) {
-        document.getElementById('result').innerHTML = '<span style="color:#d32f2f">Error creating room: ' + e.message + '</span>';
+        resultDiv.innerHTML = `<span style="color:#d32f2f">Error creating room: ${e.message}</span>`;
       }
     }
   </script>
