@@ -22,7 +22,8 @@
     "production": {
       "node": "20.19.0",
       "ios": {
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "credentialsSource": "local"
       },
       "env": {
         "NODE_ENV": "production",
@@ -35,7 +36,10 @@
       "ios": {
         "appleId": "nu2u@sbcglobal.net",
         "ascAppId": "6761438541",
-        "appleTeamId": "4JZRW3MPP2"
+        "appleTeamId": "4JZRW3MPP2",
+        "ascApiKeyPath": "../attached_assets/AuthKey_QWDQ3BX6L2_1780542919913.p8",
+        "ascApiKeyId": "QWDQ3BX6L2",
+        "ascApiKeyIssuerId": "d2a1ce37-68d8-4c89-a42c-cc4eb8f14055"
       }
     }
   }

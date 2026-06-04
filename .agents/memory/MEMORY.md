@@ -1,0 +1,1 @@
+- [EAS iOS cloud build & submit](eas-ios-cloud-build.md) — no-Mac owner; local credentials.json, server-side submit survives CLI kill, /tmp wipes per turn, native Info.plist version must match ASC version string exactly.
