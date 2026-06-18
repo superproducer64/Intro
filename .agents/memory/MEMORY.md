@@ -1,2 +1,1 @@
-- [EAS iOS cloud build & submit](eas-ios-cloud-build.md) — no-Mac owner; local credentials.json, server-side submit survives CLI kill, /tmp wipes per turn, native Info.plist version must match ASC version string exactly.
-- [Apple 1.2 UGC compliance](apple-ugc-1.2-compliance.md) — App Store needs EULA-before-UGC (works for demo login), report+block, block must remove from feed AND notify dev
+- [EAS iOS cloud build & submit](eas-ios-cloud-build.md) — build/submit Intro's iOS app entirely server-side (no-Mac owner); credentials, version rules, and the archive/.easignore + eas-cli-version quirks that cost the most time.

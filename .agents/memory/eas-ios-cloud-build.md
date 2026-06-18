@@ -29,16 +29,34 @@ download-page / Transporter routes are all dead. Auth to EAS is via the
 - **Detached/`nohup` processes do NOT survive a turn boundary** — they get killed and
   their logs (in /tmp) vanish. Do not rely on backgrounding to outlast a turn.
 - **`eas build` upload can exceed the 120s bash-tool limit.** Run it in ONE synchronous
-  call with `--no-wait` and `EAS_SKIP_AUTO_FINGERPRINT=1` (the fingerprint step hangs
-  for minutes). The upload itself is ~10s; the queue returns fast once fingerprint is skipped.
+  call with `--no-wait` and `EAS_SKIP_AUTO_FINGERPRINT=1` (logs `Skipping project fingerprint`).
+  A clean run reaches `Uploaded to EAS` + prints the build link in ~25-30s and the job then
+  continues server-side. Detect success by polling Expo GraphQL for a new `appBuildVersion`
+  rather than trusting the killed CLI.
+- **EAS archive root = the git repo root, NOT the project dir.** Even with `EAS_NO_VCS=1`,
+  eas-cli finds the only `.git` (at the workspace root) and archives the WHOLE monorepo
+  (`mobile/` + `Intro/` + `original-intro/` + web app + every `.cache`/`node_modules`).
+  It uses `.gitignore` UNLESS a `.easignore` exists **at that archive root** — a
+  `mobile/.easignore` is silently ignored. Fix: keep a `/.easignore` (workspace root) that
+  excludes `node_modules`, the sibling project dirs, and **`.cache/`** (a ~1GB
+  `.cache/dotslash` holds a read-only React Native DevTools binary; if archived, the
+  tarball upload fails on cleanup with `EACCES: permission denied, rmdir ... -shallow-clone
+  /.cache/dotslash/...React Native DevTools-linux-x64`). With the root `.easignore` the
+  tarball drops to ~300 KB and uploads instantly.
 - **`eas submit` runs SERVER-SIDE.** Even if the CLI call is killed at 120s, the
   submission job keeps running on EAS. Poll it via GraphQL instead of re-running.
 - Poll status via Expo GraphQL `https://api.expo.dev/graphql` (Bearer EXPO_TOKEN):
   builds = `builds{byId(buildId:"..."){status error{errorCode message}}}`,
   submissions = `submissions{byId(submissionId:"..."){status error{...}}}`,
   or a build's `submissions{...}`. There is NO `eas submission:list` command in CLI v18.
-- The globally-installed `eas` binary is at `.config/npm/node_global/bin/eas` (v18.4.0).
+- The globally-installed `eas` binary is at `.config/npm/node_global/bin/eas`.
   Prefer it over `npx eas-cli@latest` — concurrent npx runs corrupt the npx cache (ENOTEMPTY).
+- **Use eas-cli >= 20.x.** v18.4.0 hard-crashes a production build during the "discourage
+  Expo Go" check: `Cannot find module 'expo-dev-client/package.json'` (it calls the throwing
+  `resolveFrom` instead of the silent one). This project legitimately has NO expo-dev-client,
+  so the crash is spurious. v20.2.0 catches the missing module and continues. Do NOT "fix" it
+  by installing expo-dev-client into a prod App Store build — upgrade the CLI instead.
+  (`EXPO_DEBUG=1` is what surfaced this; non-debug runs swallowed it and looked like a stall.)
 
 # Version / build-number rule (critical, easy to get wrong)
 - Because `mobile/ios/` exists (from `expo prebuild`), EAS IGNORES app.json's

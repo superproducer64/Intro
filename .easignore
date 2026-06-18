@@ -1,0 +1,47 @@
+# EAS archive ignore — archive root is the workspace (git) root, but only
+# the mobile/ project is needed to build the iOS app. Exclude everything heavy.
+
+# Dependencies (installed server-side by EAS)
+**/node_modules/
+node_modules/
+
+# Sibling / experiment projects not used by the mobile build.
+# NOTE: leading slash anchors to the archive (workspace) root so these do NOT
+# also match mobile/ios/Intro/ (the iOS app target dir, which MUST be included).
+/Intro/
+/original-intro/
+
+# Web app runtime artifacts & build outputs
+public/uploads/
+build/
+dist/
+
+# Expo / iOS build artifacts (regenerated on the build server)
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+**/ios/build/
+**/ios/Pods/
+**/ios/DerivedData/
+**/xcuserdata/
+
+# Git & Replit internal
+.git/
+.local/
+.upm/
+.config/
+.cache/
+**/.cache/
+
+# Secrets, logs, env
+attached_assets/
+*.log
+.env
+.env.local
+.env.production
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
