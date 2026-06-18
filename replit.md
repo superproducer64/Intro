@@ -87,7 +87,7 @@ cd mobile && npx expo start
 ### Safety & Moderation (router: safety.js, mounted at /api/safety)
 - POST /api/safety/report - Report/flag a user (body: reportedUserId, reason, details) → inserts reports row (status 'open')
 - POST /api/safety/block - Block a user → inserts blocks row, deletes match+likes, AND creates a reports row so the block notifies moderation. Blocked users are excluded from /api/match/profiles in both directions instantly.
-- GET /api/reports - List all reports (admin only, requires ADMIN_PASSWORD). Returns camelCase fields: id, reportedUserId, reportedUserName, reporterId, reporterName, reason, details, status, createdAt. Implemented in reports.js (mounted at /api/reports).
+- GET /api/reports - List all reports (admin only, requires ADMIN_PASSWORD). Returns camelCase fields: id, reportedUserId, reportedUserName, reporterUserId, reporterUserName, reason, details, status, createdAt. Implemented in reports.js (mounted at /api/reports).
 - PATCH /api/reports/:id - Update report status (open/resolved/escalated/dismissed)
 - DELETE /api/account - Delete account and wipe all data
 
