@@ -1,5 +1,6 @@
 const API = 'https://intro-bgpstudioshou.replit.app';
 let isLogin = true;
+let authToken = null;
 
 function toggleAuthMode() {
   isLogin = !isLogin;
@@ -35,6 +36,7 @@ async function handleAuth() {
 
     const data = await response.json();
     if (data.token) {
+      authToken = data.token;
       alert(isLogin ? "Welcome back!" : "Account created successfully!");
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('main-screen').style.display = 'block';
@@ -48,9 +50,20 @@ async function handleAuth() {
 
 async function loadProfiles() {
   const result = document.getElementById('result');
+  if (!authToken) {
+    result.innerHTML = 'Please sign in first.';
+    return;
+  }
   result.innerHTML = 'Loading thoughtful matches...';
   try {
-    const res = await fetch(API + '/api/match/profiles');
+    const res = await fetch(API + '/api/match/profiles', {
+      headers: { 'Authorization': 'Bearer ' + authToken }
+    });
+    if (res.status === 401 || res.status === 403) {
+      authToken = null;
+      result.innerHTML = 'Your session expired. Please sign in again.';
+      return;
+    }
     const data = await res.json();
     result.innerHTML = `<strong>Matches loaded:</strong><pre>` + JSON.stringify(data, null, 2) + '</pre>';
   } catch(e) {
@@ -61,15 +74,31 @@ async function loadProfiles() {
 async function createRoom(type) {
   const titles = { cafe: "Quiet Café", movie: "Movie Night", game: "Game Night" };
   const result = document.getElementById('result');
+  if (!authToken) {
+    result.innerHTML = 'Please sign in first.';
+    return;
+  }
   result.innerHTML = `Creating ${titles[type]}...`;
   try {
     const res = await fetch(API + '/api/cafe/rooms', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + authToken
+      },
       body: JSON.stringify({ type, title: titles[type] })
     });
+    if (res.status === 401 || res.status === 403) {
+      authToken = null;
+      result.innerHTML = 'Your session expired. Please sign in again.';
+      return;
+    }
     const data = await res.json();
-    result.innerHTML = `✅ ${titles[type]} room created!`;
+    if (data.success) {
+      result.innerHTML = `✅ ${titles[type]} room created!`;
+    } else {
+      result.innerHTML = data.error || 'Error creating room';
+    }
   } catch(e) {
     result.innerHTML = 'Error creating room';
   }
