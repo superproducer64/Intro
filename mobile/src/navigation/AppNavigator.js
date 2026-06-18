@@ -15,6 +15,7 @@ import ProfileScreen from '../screens/Profile/ProfileScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import PrivacyPolicyScreen from '../screens/Legal/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/Legal/TermsOfServiceScreen';
+import GuidelinesGate from '../components/GuidelinesGate';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,6 +32,7 @@ function TabIcon({ label, focused }) {
 
 function MainTabs() {
   return (
+    <GuidelinesGate>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
@@ -44,6 +46,7 @@ function MainTabs() {
       <Tab.Screen name="Experiences" component={ExperiencesScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
+    </GuidelinesGate>
   );
 }
 

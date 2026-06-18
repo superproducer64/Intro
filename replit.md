@@ -84,11 +84,14 @@ cd mobile && npx expo start
 - POST /api/prompts - Save user's prompt answers
 - GET /api/prompts/:userId - Get user's prompts
 
-### Safety & Moderation
-- POST /api/report - Report a user
-- POST /api/block - Block a user (removes match/likes)
-- GET /api/reports - List all reports (admin only, requires ADMIN_PASSWORD)
+### Safety & Moderation (router: safety.js, mounted at /api/safety)
+- POST /api/safety/report - Report/flag a user (body: reportedUserId, reason, details) → inserts reports row (status 'open')
+- POST /api/safety/block - Block a user → inserts blocks row, deletes match+likes, AND creates a reports row so the block notifies moderation. Blocked users are excluded from /api/match/profiles in both directions instantly.
+- GET /api/admin/reports - List all reports (admin only, requires ADMIN_PASSWORD)
+- PATCH /api/admin/reports/:id - Update report status (open/resolved/escalated/dismissed)
 - DELETE /api/account - Delete account and wipe all data
+
+NOTE: Apple Guideline 1.2 (UGC) compliance — mobile app shows a Terms/Community-Guidelines acknowledgment gate (GuidelinesGate wrapping MainTabs) before any UGC is shown, and report/block are accessible from both Discover and Chat.
 
 ### Photos
 - POST /api/profile/photo - Upload profile photo (multipart/form-data, field: photo)
@@ -110,6 +113,7 @@ All auth and profile endpoints return a consistent user object:
 Built by the `buildUserShape(userId)` helper in server.js.
 
 ## Recent Changes
+- June 2026: Apple 1.2 UGC fix — added safety.js router (/api/safety/report + /block); block removes user from feed instantly AND creates a moderation report; added reportUser/blockUser to mobile api.js (were missing → report/block crashed); added report/block to Discover; added global Terms gate (GuidelinesGate) before UGC + explicit Terms checkbox on Register
 - April 2026: Added GET /api/reports (admin moderation list with status field)
 - April 2026: Added POST /api/profile/photo (multer file upload, stores to public/uploads/photos/)
 - April 2026: Standardized all user-returning endpoints to use buildUserShape() helper

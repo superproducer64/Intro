@@ -125,6 +125,21 @@ export async function createHyperbeamSession(url) {
   });
 }
 
+// ==================== SAFETY (report & block) ====================
+export async function reportUser(reportedUserId, reason, details) {
+  return request('/api/safety/report', {
+    method: 'POST',
+    body: JSON.stringify({ reportedUserId, reason, details }),
+  });
+}
+
+export async function blockUser(blockedUserId) {
+  return request('/api/safety/block', {
+    method: 'POST',
+    body: JSON.stringify({ blockedUserId }),
+  });
+}
+
 // ==================== OTHER ====================
 export async function getProfile() {
   return request('/api/profile');

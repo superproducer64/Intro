@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Image, Alert } from 'react-native';
 import * as api from '../../services/api';
+import ReportBlockModal from '../../components/ReportBlockModal';
 
 const DiscoverScreen = () => {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reportTarget, setReportTarget] = useState(null);
 
   const loadProfiles = async () => {
     try {
@@ -13,7 +15,7 @@ const DiscoverScreen = () => {
       setProfiles(data.profiles || data || []);
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Could not load profiles. Please try again.");
+      Alert.alert('Error', 'Could not load profiles. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -27,14 +29,20 @@ const DiscoverScreen = () => {
     try {
       const result = await api.likeUser(userId);
       if (result.match) {
-        Alert.alert("🎉 It's a Match!", "You both liked each other!");
+        Alert.alert("🎉 It's a Match!", 'You both liked each other!');
       } else {
-        Alert.alert("Sent", "Gentle connection sent");
+        Alert.alert('Sent', 'Gentle connection sent');
       }
       loadProfiles(); // refresh
     } catch (error) {
-      Alert.alert("Error", "Failed to send connection");
+      Alert.alert('Error', 'Failed to send connection');
     }
+  };
+
+  const handleBlocked = (userId) => {
+    // Remove the blocked user from the feed instantly
+    setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    setReportTarget(null);
   };
 
   return (
@@ -54,26 +62,36 @@ const DiscoverScreen = () => {
           shadowOpacity: 0.1,
           shadowRadius: 10,
         }}>
-          {profile.photos?.[0] && (
-            <Image source={{ uri: profile.photos[0] }} style={{ width: '100%', height: 280, borderRadius: 16 }} />
-          )}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Text style={{ fontSize: 26, fontWeight: '300', flex: 1 }}>
+              {profile.name}, {profile.age}
+            </Text>
+            <Pressable
+              onPress={() => setReportTarget(profile)}
+              hitSlop={12}
+              style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+              accessibilityLabel={`Report or block ${profile.name}`}
+            >
+              <Text style={{ fontSize: 22, color: '#999' }}>⋯</Text>
+            </Pressable>
+          </View>
 
-          <Text style={{ fontSize: 26, fontWeight: '300', marginTop: 12 }}>
-            {profile.name}, {profile.age}
-          </Text>
+          {profile.photos?.[0] && (
+            <Image source={{ uri: profile.photos[0] }} style={{ width: '100%', height: 280, borderRadius: 16, marginTop: 12 }} />
+          )}
 
           <Text style={{ color: '#555', marginTop: 8, lineHeight: 22 }}>{profile.bio}</Text>
 
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-            <Pressable 
+            <Pressable
               onPress={() => handleLike(profile.id)}
               style={{ flex: 1, backgroundColor: '#4A7043', padding: 16, borderRadius: 999, alignItems: 'center' }}
             >
               <Text style={{ color: 'white', fontWeight: '600' }}>Send Gentle Connection</Text>
             </Pressable>
 
-            <Pressable 
-              onPress={() => Alert.alert("Passed")}
+            <Pressable
+              onPress={() => Alert.alert('Passed')}
               style={{ flex: 1, backgroundColor: '#eee', padding: 16, borderRadius: 999, alignItems: 'center' }}
             >
               <Text style={{ color: '#666' }}>Pass</Text>
@@ -87,6 +105,14 @@ const DiscoverScreen = () => {
           No profiles available right now. Check back later.
         </Text>
       )}
+
+      <ReportBlockModal
+        visible={!!reportTarget}
+        userId={reportTarget?.id}
+        userName={reportTarget?.name}
+        onClose={() => setReportTarget(null)}
+        onBlocked={() => handleBlocked(reportTarget?.id)}
+      />
     </ScrollView>
   );
 };

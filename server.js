@@ -27,6 +27,7 @@ app.use('/api', limiter);
 app.use('/api/auth', require('./auth'));
 app.use('/api/profile', require('./profile'));
 app.use('/api/match', require('./match'));
+app.use('/api/safety', require('./safety'));
 app.use('/api/messages', require('./message'));
 app.use('/api/admin', require('./admin'));
 app.use('/api/cafe', require('./cafe'));

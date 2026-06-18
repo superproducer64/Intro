@@ -26,6 +26,7 @@ export default function RegisterScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreedTos, setAgreedTos] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const toggleInterest = (i) => {
@@ -62,6 +63,10 @@ export default function RegisterScreen({ navigation }) {
     }
     if (password.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+    if (!agreedTos) {
+      Alert.alert('Error', 'Please agree to the Terms of Use to continue');
       return;
     }
     setLoading(true);
@@ -134,10 +139,16 @@ export default function RegisterScreen({ navigation }) {
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor={COLORS.textMuted} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Password" placeholderTextColor={COLORS.textMuted} value={password} onChangeText={setPassword} secureTextEntry />
       <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor={COLORS.textMuted} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
-      <Text style={styles.tosText}>
-        By creating an account, you agree to our{' '}
-        <Text style={styles.tosLink} onPress={() => Linking.openURL(TOS_URL)}>Terms of Service</Text>
-      </Text>
+      <TouchableOpacity style={styles.tosRow} onPress={() => setAgreedTos(v => !v)} activeOpacity={0.7}>
+        <View style={[styles.checkbox, agreedTos && styles.checkboxChecked]}>
+          {agreedTos && <Text style={styles.checkboxMark}>✓</Text>}
+        </View>
+        <Text style={styles.tosText}>
+          I agree to the{' '}
+          <Text style={styles.tosLink} onPress={() => Linking.openURL(TOS_URL)}>Terms of Use</Text>
+          {' '}and understand there is zero tolerance for objectionable content or abusive behavior.
+        </Text>
+      </TouchableOpacity>
     </View>,
   ];
 
@@ -163,7 +174,7 @@ export default function RegisterScreen({ navigation }) {
               <Text style={styles.nextText}>Continue</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={[styles.nextButton, loading && styles.buttonDisabled]} onPress={handleRegister} disabled={loading}>
+            <TouchableOpacity style={[styles.nextButton, (loading || !agreedTos) && styles.buttonDisabled]} onPress={handleRegister} disabled={loading || !agreedTos}>
               <Text style={styles.nextText}>{loading ? 'Creating...' : 'Create Account'}</Text>
             </TouchableOpacity>
           )}
@@ -226,6 +237,14 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   linkText: { color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACING.lg, marginBottom: SPACING.xl },
   link: { color: COLORS.primary, fontWeight: '600' },
-  tosText: { color: COLORS.textMuted, fontSize: 13, textAlign: 'center', marginTop: SPACING.sm },
+  tosRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginTop: SPACING.md },
+  checkbox: {
+    width: 24, height: 24, borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 2, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxChecked: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  checkboxMark: { color: COLORS.text, fontSize: 14, fontWeight: 'bold' },
+  tosText: { color: COLORS.textMuted, fontSize: 13, flex: 1, lineHeight: 18 },
   tosLink: { color: COLORS.primary, textDecorationLine: 'underline' },
 });
