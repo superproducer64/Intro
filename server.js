@@ -30,6 +30,7 @@ app.use('/api/match', require('./match'));
 app.use('/api/safety', require('./safety'));
 app.use('/api/messages', require('./message'));
 app.use('/api/admin', require('./admin'));
+app.use('/api/reports', require('./reports'));
 app.use('/api/cafe', require('./cafe'));
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

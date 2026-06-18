@@ -87,6 +87,7 @@ async function initDB() {
         status VARCHAR(20) DEFAULT 'open'
       )
     `);
+    await pool.query(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'open'`);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blocks (
