@@ -2,6 +2,32 @@ const API = 'https://intro-bgpstudioshou.replit.app';
 let isLogin = true;
 let authToken = null;
 
+async function unlockAdmin() {
+  const password = document.getElementById('admin-password').value;
+  const errEl = document.getElementById('admin-error');
+  errEl.textContent = '';
+  if (!password) {
+    errEl.textContent = 'Please enter the admin password.';
+    return;
+  }
+  try {
+    const res = await fetch(API + '/api/admin/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if (res.ok && data.token) {
+      document.getElementById('admin-gate').style.display = 'none';
+      document.getElementById('auth-screen').style.display = 'block';
+    } else {
+      errEl.textContent = data.error || 'Incorrect password.';
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection error. Please try again.';
+  }
+}
+
 function toggleAuthMode() {
   isLogin = !isLogin;
   document.getElementById('auth-title').textContent = isLogin ? 'Sign In' : 'Create Account';
@@ -105,6 +131,10 @@ async function createRoom(type) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('admin-unlock-btn').addEventListener('click', unlockAdmin);
+  document.getElementById('admin-password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') unlockAdmin();
+  });
   document.getElementById('signin-btn').addEventListener('click', handleAuth);
   document.getElementById('toggle-mode').addEventListener('click', toggleAuthMode);
   document.getElementById('load-profiles').addEventListener('click', loadProfiles);

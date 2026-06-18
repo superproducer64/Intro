@@ -12,7 +12,7 @@ router.get('/profiles', async (req, res) => {
     const userId = token ? require('./db').userTokens.get(token) : req.query.exclude_user_id;
 
     let query = `
-      SELECT u.id, u.name, u.email, u.age, u.bio, u.photo_url,
+      SELECT u.id, u.name, u.age, u.bio, u.photo_url,
              u.personality_type, u.looking_for, u.location
       FROM users u
       WHERE u.name IS NOT NULL AND u.age IS NOT NULL
@@ -33,7 +33,6 @@ router.get('/profiles', async (req, res) => {
     const profiles = result.rows.map(u => ({
       id: u.id,
       name: u.name,
-      email: u.email,
       age: u.age,
       bio: u.bio ?? '',
       photos: u.photo_url ? [u.photo_url] : [],

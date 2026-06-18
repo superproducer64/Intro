@@ -41,7 +41,17 @@
     <h1>Intro</h1>
     <p class="tagline">Intentional dating for introverts</p>
 
-    <div id="auth-screen">
+    <div id="admin-gate">
+      <div class="card">
+        <h2>🔒 Restricted</h2>
+        <p style="color:#666; font-size:15px; margin-top:0;">This testing page is private. Enter the admin password to continue.</p>
+        <input type="password" id="admin-password" placeholder="Admin password">
+        <button id="admin-unlock-btn">Unlock</button>
+        <div id="admin-error" style="color:#b00; text-align:center; margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div id="auth-screen" style="display:none;">
       <div class="card">
         <h2 id="auth-title">Sign In</h2>
 
