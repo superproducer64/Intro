@@ -8,8 +8,7 @@ router.use(verifyUser);
 
 router.get('/profiles', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    const userId = token ? require('./db').userTokens.get(token) : req.query.exclude_user_id;
+    const userId = req.userId; // set by verifyUser middleware
 
     let query = `
       SELECT u.id, u.name, u.age, u.bio, u.photo_url,
@@ -28,7 +27,9 @@ router.get('/profiles', async (req, res) => {
     }
 
     query += ' ORDER BY u.id';
+    console.log('[Discover] userId=' + userId + ' params=' + JSON.stringify(params));
     const result = await pool.query(query, params);
+    console.log('[Discover] rows returned=' + result.rows.length);
 
     const profiles = result.rows.map(u => ({
       id: u.id,
