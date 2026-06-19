@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intro iOS Build Files</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d0d1a; color: #e0e0e0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+    .card { background: #13132a; border: 1px solid #2a2a4a; border-radius: 16px; padding: 40px; max-width: 500px; width: 100%; }
+    h1 { font-size: 1.5rem; color: #fff; margin-bottom: 8px; }
+    .sub { color: #888; font-size: 0.9rem; margin-bottom: 32px; }
+    .step { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 24px; }
+    .num { background: #7c3aed; color: #fff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
+    .step-body { flex: 1; }
+    .step-title { color: #fff; font-weight: 600; margin-bottom: 6px; }
+    .step-desc { color: #aaa; font-size: 0.88rem; line-height: 1.5; margin-bottom: 10px; }
+    .btn { display: inline-block; background: #7c3aed; color: #fff; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    .btn:hover { background: #6d28d9; }
+    .btn.secondary { background: #1e1e3a; border: 1px solid #3a3a5a; }
+    .btn.secondary:hover { background: #2a2a4a; }
+    .divider { border: none; border-top: 1px solid #2a2a4a; margin: 24px 0; }
+    .note { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); border-radius: 10px; padding: 16px; font-size: 0.85rem; color: #c4b5fd; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Intro — iOS Build Files</h1>
+    <p class="sub">Download both files, then double-click the installer.</p>
+
+    <div class="step">
+      <div class="num">1</div>
+      <div class="step-body">
+        <div class="step-title">Download the project files</div>
+        <div class="step-desc">The iOS Xcode project (~88KB)</div>
+        <a class="btn" href="/intro-ios.tar.gz" download="intro-ios.tar.gz">Download intro-ios.tar.gz</a>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">2</div>
+      <div class="step-body">
+        <div class="step-title">Download the installer script</div>
+        <div class="step-desc">Extracts the project, installs dependencies, and opens Xcode automatically.</div>
+        <a class="btn" href="/intro-build.command" download="intro-build.command">Download intro-build.command</a>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <div class="step">
+      <div class="num">3</div>
+      <div class="step-body">
+        <div class="step-title">Run the installer</div>
+        <div class="step-desc">Open Finder → Downloads. Right-click <strong>intro-build.command</strong> → Open → Open. A window runs everything and launches Xcode.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">4</div>
+      <div class="step-body">
+        <div class="step-title">Archive in Xcode</div>
+        <div class="step-desc">In Xcode: select your team in Signing &amp; Capabilities, then <strong>Product → Archive → Distribute App → App Store Connect</strong>.</div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+    <div class="note">Both files must be in your Downloads folder before running the installer.</div>
+  </div>
+</body>
+</html>

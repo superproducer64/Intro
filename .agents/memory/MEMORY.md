@@ -1,0 +1,2 @@
+- [EAS iOS cloud build & submit](eas-ios-cloud-build.md) — build/submit Intro's iOS app entirely server-side (no-Mac owner); credentials, version rules, and the archive/.easignore + eas-cli-version quirks that cost the most time.
+- [Web static page CSP & publish](web-static-page-csp-and-publish.md) — helmet default CSP blocks inline JS/onclick (keep JS external); publish flow once truncated public/index.html to a white screen — restore from last good commit.

@@ -1,0 +1,15 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./app/**/*.{js,jsx,ts,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        cream: "#F8F5F2",
+        softGreen: "#4A7043",
+        warmGray: "#E5E0D8",
+        deepText: "#2C2C2C"
+      },
+    },
+  },
+  plugins: [],
+}

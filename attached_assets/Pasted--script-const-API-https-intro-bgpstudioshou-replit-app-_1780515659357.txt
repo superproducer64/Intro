@@ -1,0 +1,67 @@
+<script>
+  const API = 'https://intro-bgpstudioshou.replit.app';
+  let isLogin = true;
+
+  function toggleAuthMode() {
+    isLogin = !isLogin;
+    document.getElementById('auth-title').textContent = isLogin ? 'Sign In' : 'Create Account';
+    document.getElementById('name').style.display = isLogin ? 'none' : 'block';
+  }
+
+  async function handleAuth() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const name = document.getElementById('name').value.trim();
+
+    if (!email || !password || (!isLogin && !name)) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    try {
+      let response;
+      if (isLogin) {
+        response = await fetch(API + '/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ email, password })
+        });
+      } else {
+        response = await fetch(API + '/api/auth/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ name, email, password, age: 28, bio: '' })
+        });
+      }
+
+      const data = await response.json();
+      if (data.token) {
+        alert(isLogin ? "Welcome back!" : "Account created successfully!");
+        document.querySelector('.card').style.display = 'none';
+        document.getElementById('main-screen').style.display = 'block';
+      } else {
+        alert(data.error || "Something went wrong");
+      }
+    } catch(e) {
+      alert("Cannot connect to server. Make sure backend is running.");
+    }
+  }
+
+  // Apple Sign In
+  async function appleSignIn() {
+    alert("Apple Sign In triggered!\n\n(This is a demo - in real app it would use Apple's SDK)");
+    
+    // Simulate successful login
+    document.querySelector('.card').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'block';
+  }
+
+  // Other functions
+  async function loadProfiles() {
+    alert("Loading gentle matches... (check console for details)");
+  }
+
+  async function createRoom(type) {
+    alert(`Creating ${type} room...`);
+  }
+</script>

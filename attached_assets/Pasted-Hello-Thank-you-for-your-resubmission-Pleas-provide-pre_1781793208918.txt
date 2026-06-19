@@ -1,0 +1,49 @@
+Hello,
+
+Thank you for your resubmission. Pleas provide pre-populate demo account for us to verify block and report mechanism. Upon further review, we identified additional issues that need your attention. See below for more information.
+
+Review Environment
+Submission ID: 07656a91-0ef1-4e92-85b3-a0150dec2e96
+Review date: May 02, 2026
+Review Device: iPhone 17 Pro Max
+Version reviewed: 1.0 (1)
+
+Guideline 2.3.3 - Performance - Accurate Metadata
+Issue Description
+
+The 6.5-inch iPhone screenshots only display a login screen. Screenshots should highlight the app's core concept to help users understand the app’s functionality and value. 
+
+Next Steps
+
+Upload new screenshots that resolve the issues identified above and accurately reflect the app in use on each of the supported devices.
+
+Note some screenshots may only be viewed and updated by selecting "View All Sizes in Media Manager" in the Previews and Screenshots section of App Store Connect.
+
+Resources
+
+Follow these general requirements when adding or updating screenshots:
+
+- Marketing or promotional materials that do not reflect the UI of the app are not appropriate for screenshots.
+- The majority of the screenshots should highlight the app's main features and functionality. Note that splash and login screens are generally not considered to show the app in use.
+
+Learn more about creating great screenshots for your product page on the App Store or how to upload screenshots in App Store Connect.
+Guideline 1.2 - Safety - User-Generated Content
+
+Issue Description
+
+We found in our review that the app includes user-generated content but does not have all the required precautions. Apps with user-generated content must take specific steps to moderate content and prevent abusive behavior.
+
+Next Steps
+
+To resolve this issue, revise the app to implement the following precautions:
+
+- A mechanism for users to block abusive users. Blocking should also notify the developer of the inappropriate content and should remove it from the user's feed instantly.
+- The developer must act on objectionable content reports within 24 hours by removing the content and ejecting the user who provided the offending content
+
+Once the required precautions have been implemented, or if they are already in place, reply to this message with a screen recording captured on a physical device that demonstrates:
+
+- The EULA or terms of use agreement presented to users before accessing user-generated content
+- The mechanism for users to flag objectionable content
+- The mechanism for users to block abusive users
+
+Include the recording in the Notes field of the App Review Information section in App Store Connect for future submissions.
