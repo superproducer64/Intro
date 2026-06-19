@@ -12,7 +12,7 @@ const DiscoverScreen = () => {
   const loadProfiles = async () => {
     try {
       const data = await api.getProfiles();
-      setProfiles(data.profiles || data || []);
+      setProfiles(Array.isArray(data) ? data : (data.profiles || []));
     } catch (error) {
       console.error(error);
       Alert.alert('Error', 'Could not load profiles. Please try again.');
