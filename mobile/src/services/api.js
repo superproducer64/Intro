@@ -1,8 +1,13 @@
 // src/services/api.js
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 
-const API_URL = 'https://intro-bgpstudioshou.replit.app';
-const WS_URL = 'wss://intro-bgpstudioshou.replit.app';
+const _apiBase =
+  Constants?.expoConfig?.extra?.apiUrl ||
+  'https://intro-bgpstudioshou.replit.app';
+
+const API_URL = _apiBase;
+const WS_URL = _apiBase.replace(/^http/, 'ws');
 
 let authToken = null;
 let currentUser = null;
@@ -81,11 +86,13 @@ export async function login(email, password) {
   return data;
 }
 
-export async function appleSignIn(appleId, name, email) {
+export async function appleSignIn(identityToken, name, email, age) {
   const data = await request('/api/auth/apple', {
     method: 'POST',
-    body: JSON.stringify({ appleId, name, email }),
+    body: JSON.stringify({ identityToken, name, email, age }),
   });
+  // If server requires age, surface that to the caller
+  if (!data.token && data.requiresAge) return data;
   await saveAuth(data.token, data.user);
   return data;
 }

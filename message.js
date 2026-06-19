@@ -12,11 +12,19 @@ router.get('/:matchUserId', async (req, res) => {
   const mid = parseInt(matchUserId, 10);
 
   try {
+    // Match verification: only matched users can read the conversation
+    const u1 = Math.min(uid, mid);
+    const u2 = Math.max(uid, mid);
+    const matchCheck = await pool.query(
+      'SELECT 1 FROM matches WHERE user1_id = $1 AND user2_id = $2',
+      [u1, u2]
+    );
+    if (matchCheck.rows.length === 0) {
+      return res.status(403).json({ error: 'You can only view conversations with your matches' });
+    }
+
     const result = await pool.query(
-      `SELECT id, sender_id, receiver_id, message, created_at FROM messages
-       WHERE (sender_id = $1 AND receiver_id = $2)
-          OR (sender_id = $2 AND receiver_id = $1)
-       ORDER BY created_at ASC`,
+      'SELECT id, sender_id, receiver_id, message, created_at FROM messages WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1) ORDER BY created_at ASC',
       [uid, mid]
     );
 

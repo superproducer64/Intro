@@ -55,4 +55,30 @@ router.post('/profiles', verifyAdmin, async (req, res) => {
   }
 });
 
+router.get('/stranded-users', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, email, created_at FROM users
+      WHERE id NOT IN (SELECT DISTINCT user_id FROM profiles WHERE user_id IS NOT NULL)
+      ORDER BY created_at DESC
+    `);
+    res.json({ count: result.rows.length, users: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to query stranded users' });
+  }
+});
+
+router.delete('/stranded-users', verifyAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      DELETE FROM users
+      WHERE id NOT IN (SELECT DISTINCT user_id FROM profiles WHERE user_id IS NOT NULL)
+      RETURNING id, name, email
+    `);
+    res.json({ deleted: result.rows.length, users: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete stranded users' });
+  }
+});
+
 module.exports = router;

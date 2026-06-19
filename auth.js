@@ -6,10 +6,19 @@ const crypto = require('crypto');
 const { pool, userTokens, buildUserShape } = require('./db');
 
 router.post('/register', async (req, res) => {
+  console.log('[REGISTER] Request body:', JSON.stringify(req.body));
   const { name, email, password, age, bio } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
+  }
+
+  if (!age) {
+    return res.status(400).json({ error: 'Age is required' });
+  }
+  const ageNum = parseInt(age, 10);
+  if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
+    return res.status(400).json({ error: 'You must be 18 or older to use Intro' });
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -21,10 +30,6 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
   }
 
-  if (age && (age < 18 || age > 120)) {
-    return res.status(400).json({ error: 'Age must be between 18 and 120' });
-  }
-
   try {
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existing.rows.length > 0) {
@@ -34,12 +39,12 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const userResult = await pool.query(
-      'INSERT INTO users (name, email, password, age, bio) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [name.trim(), email.toLowerCase(), hashedPassword, age || null, bio || '']
+      'INSERT INTO users (name, email, password, age, bio, tos_accepted_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id',
+      [name.trim(), email.toLowerCase(), hashedPassword, ageNum, bio || '']
     );
 
     const userId = userResult.rows[0].id;
-    const profileName = age ? `${name.trim()}, ${age}` : name.trim();
+    const profileName = name.trim() + ', ' + ageNum;
 
     await pool.query(
       'INSERT INTO profiles (user_id, name, bio, sort_order) VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM profiles))',
@@ -95,9 +100,24 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/apple', async (req, res) => {
-  const { appleId, name, email } = req.body;
-  if (!appleId) {
-    return res.status(400).json({ error: 'Apple ID is required' });
+  const { identityToken, name, email, age } = req.body;
+
+  if (!identityToken) {
+    return res.status(400).json({ error: 'Apple identity token is required' });
+  }
+
+  // Server-side Apple JWT verification
+  let appleId;
+  try {
+    const appleSignin = require('apple-signin-auth');
+    const payload = await appleSignin.verifyIdToken(identityToken, {
+      audience: 'com.bgpstudios.intro',
+      ignoreExpiration: false,
+    });
+    appleId = payload.sub;
+  } catch (verifyErr) {
+    console.error('Apple token verification failed:', verifyErr.message);
+    return res.status(401).json({ error: 'Apple identity token verification failed' });
   }
 
   try {
@@ -111,20 +131,33 @@ router.post('/apple', async (req, res) => {
       return res.json({ token, user: userShape, isNewUser: false });
     }
 
-    const userEmail = email || `${appleId}@apple.privaterelay`;
+    // New user - age is required even for Apple Sign-In
+    if (!age) {
+      return res.status(400).json({
+        error: 'Age is required',
+        requiresAge: true,
+        message: 'Please provide your age to complete registration',
+      });
+    }
+    const ageNum = parseInt(age, 10);
+    if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
+      return res.status(400).json({ error: 'You must be 18 or older to use Intro' });
+    }
+
+    const userEmail = email || (appleId + '@apple.privaterelay');
     const userName = name || 'Intro User';
     const randomPass = crypto.randomBytes(32).toString('hex');
     const hashedPassword = await bcrypt.hash(randomPass, 12);
 
     const userResult = await pool.query(
-      'INSERT INTO users (name, email, password, apple_id) VALUES ($1, $2, $3, $4) RETURNING id',
-      [userName, userEmail, hashedPassword, appleId]
+      'INSERT INTO users (name, email, password, apple_id, age, tos_accepted_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id',
+      [userName, userEmail, hashedPassword, appleId, ageNum]
     );
 
     const userId = userResult.rows[0].id;
     await pool.query(
       'INSERT INTO profiles (user_id, name, bio, sort_order) VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM profiles))',
-      [userId, userName, '']
+      [userId, userName + ', ' + ageNum, '']
     );
 
     const token = crypto.randomBytes(32).toString('hex');

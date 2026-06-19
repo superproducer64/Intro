@@ -1,6 +1,16 @@
 // websocket.js
 const { pool, userTokens, connectedClients } = require('./db');
 
+async function areMutualMatches(userId, receiverId) {
+  const u1 = Math.min(userId, receiverId);
+  const u2 = Math.max(userId, receiverId);
+  const result = await pool.query(
+    'SELECT 1 FROM matches WHERE user1_id = $1 AND user2_id = $2',
+    [u1, u2]
+  );
+  return result.rows.length > 0;
+}
+
 module.exports = (wss) => {
   wss.on('connection', (ws) => {
     let userId = null;
@@ -36,6 +46,13 @@ module.exports = (wss) => {
           const { receiverId, text } = message;
           const rid = parseInt(receiverId, 10);
 
+          // Match verification: only matched users can message each other
+          const matched = await areMutualMatches(userId, rid);
+          if (!matched) {
+            ws.send(JSON.stringify({ type: 'error', error: 'You can only message your matches' }));
+            return;
+          }
+
           const result = await pool.query(
             'INSERT INTO messages (sender_id, receiver_id, message) VALUES ($1, $2, $3) RETURNING id, created_at',
             [userId, rid, text]
@@ -51,12 +68,10 @@ module.exports = (wss) => {
 
           const payload = JSON.stringify({ type: 'message', ...savedMessage });
 
-          // Echo to sender
           ws.send(payload);
 
-          // Send to receiver if online
           const receiverWs = connectedClients.get(rid);
-          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+          if (receiverWs && receiverWs.readyState === 1) {
             receiverWs.send(payload);
           }
         }

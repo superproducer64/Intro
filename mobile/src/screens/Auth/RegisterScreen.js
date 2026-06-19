@@ -72,13 +72,24 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
     try {
       await api.register({ name, email: email.trim().toLowerCase(), password, age: parseInt(age), bio });
-      await api.updateProfile({ personalityType: personality, lookingFor, location, interests });
-      navigation.replace('ProfileSetup');
     } catch (e) {
       Alert.alert('Registration Failed', e.message);
-    } finally {
       setLoading(false);
+      return;
     }
+
+    try {
+      await api.updateProfile({ personalityType: personality, lookingFor, location, interests });
+    } catch (e) {
+      console.warn('Profile update failed after registration:', e.message);
+      Alert.alert(
+        'Profile Setup Incomplete',
+        'Your account was created, but some profile details couldn\'t be saved. You can finish this in Settings.'
+      );
+    }
+
+    setLoading(false);
+    navigation.replace('ProfileSetup');
   };
 
   const steps = [

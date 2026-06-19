@@ -17,13 +17,11 @@ app.use(helmet());
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 
-// Serve static files from public folder
 app.use(express.static('public'));
 
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use('/api', limiter);
 
-// Routes
 app.use('/api/auth', require('./auth'));
 app.use('/api/profile', require('./profile'));
 app.use('/api/match', require('./match'));
@@ -36,11 +34,12 @@ app.use('/api/cafe', require('./cafe'));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 initDB().then(() => {
-  console.log('✅ Database ready');
+  console.log('Database ready');
 }).catch(err => console.error('DB Error:', err));
 
 require('./websocket')(wss);
+require('./cron');
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Intro backend running on http://0.0.0.0:${PORT}`);
+  console.log('Intro backend running on http://0.0.0.0:' + PORT);
 });

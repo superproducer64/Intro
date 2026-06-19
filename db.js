@@ -25,7 +25,7 @@ async function buildUserShape(userId) {
     name: user.name,
     email: user.email,
     age: user.age,
-    bio: user.bio ?? '',
+    bio: user.bio || '',
     photos: user.photo_url ? [user.photo_url] : [],
     prompts: p.rows,
   };
@@ -46,11 +46,13 @@ async function initDB() {
         personality_type VARCHAR(50),
         looking_for VARCHAR(100),
         location VARCHAR(100),
+        tos_accepted_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id VARCHAR(255) UNIQUE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS personality_type VARCHAR(50)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS looking_for VARCHAR(100)`);
@@ -155,7 +157,16 @@ async function initDB() {
       )
     `);
 
-    // Virtual Café Rooms Table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS signups (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100),
+        email VARCHAR(255),
+        experience TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS cafe_rooms (
         id SERIAL PRIMARY KEY,
@@ -168,7 +179,7 @@ async function initDB() {
       )
     `);
 
-    console.log('✅ Database initialized successfully');
+    console.log('Database initialized successfully');
   } catch (err) {
     console.error('Database initialization error:', err.message);
   }

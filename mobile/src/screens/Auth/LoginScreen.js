@@ -57,7 +57,8 @@ export default function LoginScreen({ navigation }) {
       const fullName = credential.fullName
         ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
         : null;
-      const data = await api.appleSignIn(credential.user, fullName, credential.email);
+      // Send the identity token for server-side verification (not just the opaque user ID)
+      const data = await api.appleSignIn(credential.identityToken, fullName, credential.email);
       if (data.isNewUser) {
         navigation.replace('ProfileSetup');
       } else {

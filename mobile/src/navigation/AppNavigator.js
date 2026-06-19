@@ -18,6 +18,7 @@ import TermsOfServiceScreen from '../screens/Legal/TermsOfServiceScreen';
 import GuidelinesGate from '../components/GuidelinesGate';
 
 const Stack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
@@ -32,7 +33,6 @@ function TabIcon({ label, focused }) {
 
 function MainTabs() {
   return (
-    <GuidelinesGate>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
@@ -46,6 +46,25 @@ function MainTabs() {
       <Tab.Screen name="Experiences" component={ExperiencesScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
+  );
+}
+
+/**
+ * AuthenticatedStack — wraps ALL post-login screens (tabs AND Chat/Settings)
+ * inside a single GuidelinesGate so there is no navigation path that
+ * bypasses community-guidelines acceptance, including direct navigations
+ * to Chat via deep-link or programmatic navigate().
+ */
+function AuthenticatedStack() {
+  return (
+    <GuidelinesGate>
+      <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
+        <AuthStack.Screen name="Main" component={MainTabs} />
+        <AuthStack.Screen name="Chat" component={ChatScreen} />
+        <AuthStack.Screen name="Settings" component={SettingsScreen} />
+        <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+        <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+      </AuthStack.Navigator>
     </GuidelinesGate>
   );
 }
@@ -56,14 +75,13 @@ export default function AppNavigator({ initialRoute }) {
       initialRouteName={initialRoute}
       screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}
     >
+      {/* Unauthenticated screens — no GuidelinesGate needed */}
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-      <Stack.Screen name="Main" component={MainTabs} />
-      <Stack.Screen name="Chat" component={ChatScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-      <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+
+      {/* All authenticated screens — GuidelinesGate is enforced here */}
+      <Stack.Screen name="Main" component={AuthenticatedStack} />
     </Stack.Navigator>
   );
 }
