@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intro - Connect Without Connecting</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <!-- Animated Splash Screen -->
+  <div class="intro-screen" id="introScreen">
+    <div class="intro-content">
+      <div class="intro-logo">INTRO</div>
+      <div class="intro-tagline">
+        Connect <span class="intro-accent"></span> Without <span class="intro-accent"></span> Connecting
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Screen (Login/Signup) -->
+  <div class="auth-screen" id="authScreen">
+    <div class="auth-container">
+      <h1 class="auth-logo">INTRO</h1>
+      <p class="auth-tagline">Dating for Introverts</p>
+      
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth="login">Sign In</button>
+        <button class="auth-tab" data-auth="signup">Sign Up</button>
+      </div>
+
+      <!-- Login Form -->
+      <form class="auth-form" id="loginForm">
+        <input type="email" class="auth-input" placeholder="Email" required>
+        <input type="password" class="auth-input" placeholder="Password" required>
+        <button type="submit" class="auth-btn">Sign In</button>
+        <p class="auth-error" id="loginError"></p>
+      </form>
+
+      <!-- Signup Prompt -->
+      <div class="auth-form hidden" id="signupPrompt">
+        <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 14px;">Create your profile and start connecting with thoughtful people who understand you.</p>
+        <button type="button" class="auth-btn" id="startSignupBtn">Get Started</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Step Questionnaire -->
+  <div class="questionnaire-screen" id="questionnaireScreen">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill" style="width: 12.5%"></div>
+    </div>
+    
+    <div class="questionnaire-header">
+      <h1>Build Your Profile</h1>
+      <p id="pageSubtitle">Authentic connections for thoughtful people</p>
+    </div>
+
+    <div class="questionnaire-content">
+      <!-- Page 1: Profile Type -->
+      <div class="q-page active" data-page="1">
+        <div class="q-form-container">
+          <div class="q-section">
+            <label class="q-label">How do you want to present yourself?</label>
+            <div class="options-grid">
+              <label class="option-card">
+                <input type="radio" name="profileType" value="avatar">
+                <div class="option-card-content">
+                  <div class="option-icon">&#127912;</div>
+                  <div class="option-label">Avatar</div>
+                  <div class="option-desc">Cartoon illustration</div>
+                </div>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="profileType" value="realPhoto">
+                <div class="option-card-content">
+                  <div class="option-icon">&#128248;</div>
+                  <div class="option-label">Real Photo</div>
+                  <div class="option-desc">Your genuine photo</div>
+                </div>
+              </label>
+            </div>
+            <p class="q-error" id="page1Error">Please select an option</p>
+          </div>
+
+          <div class="info-card">
+            <h3>&#128161; Why Choose?</h3>
+            <p>Avatars are perfect for those who want to start conversations based on personality. Real photos build trust and help you make authentic connections.</p>
+          </div>
+
+          <div class="q-button-group">
+            <button type="button" class="q-btn q-btn-secondary" data-action="cancel">Cancel</button>
+            <button type="button" class="q-btn q-btn-primary" data-action="next">Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 2: Basic Info -->
+      <div class="q-page" data-page="2">
+        <div class="q-form-container">
+          <div class="q-section">
+            <label class="q-label">First Name</label>
+            <input type="text" class="q-input" id="qName" placeholder="Your first name">
+          </div>
+
+          <div class="q-section">
+            <label class="q-label">Age</label>
+            <input type="number" class="q-input" id="qAge" placeholder="25" min="18" max="120">
+          </div>
+
+          <div class="q-section">
+            <label class="q-label">Location</label>
+            <input type="text" class="q-input" id="qLocation" placeholder="City, State">
+          </div>
+
+          <div class="q-section">
+            <label class="q-label">What's Your Personality Type?</label>
+            <div class="radio-group">
+              <div class="radio-option" data-action="select-radio">
+                <input type="radio" name="personality" value="introvert">
+                <div class="radio-option-content">
+                  <span class="radio-label-main">&#127968; Introvert</span>
+                  <span class="radio-label-sub">I recharge alone, prefer meaningful conversations</span>
+                </div>
+              </div>
+              <div class="radio-option" data-action="select-radio">
+                <input type="radio" name="personality" value="ambivert">
+                <div class="radio-option-content">
+                  <span class="radio-label-main">&#9878;&#65039; Ambivert</span>
+                  <span class="radio-label-sub">I adapt between social and quiet time</span>
+                </div>
+              </div>
+              <div class="radio-option" data-action="select-radio">
+                <input type="radio" name="personality" value="extrovert">
+                <div class="radio-option-content">
+                  <span class="radio-label-main">&#127881; Extrovert</span>
+                  <span class="radio-label-sub">I thrive in social situations</span>
+                </div>
+              </div>
+            </div>
+            <p class="q-error" id="page2Error">Please fill in all fields</p>
+          </div>
+
+          <div class="q-button-group">
+            <button type="button" class="q-btn q-btn-secondary" data-action="prev">Back</button>
+            <button type="button" class="q-btn q-btn-primary" data-action="next">Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 3: Profile Photo -->
+      <div class="q-page" data-page="3">
+        <div class="q-form-container">
+          <div class="q-section">
+            <label class="q-label">Upload Your Profile Photo</label>
+            <div class="upload-zone" id="uploadZone" data-action="pick-photo">
+              <div class="upload-icon">&#128248;</div>
+              <div class="upload-text">
+                <p><strong>Click to upload</strong> or drag and drop</p>
+                <p style="font-size: 12px; margin-top: 8px; color: var(--text-secondary);">PNG, JPG up to 10MB</p>
+              </div>
+              <input type="file" id="photoInput" accept="image/*" style="display: none;">
+            </div>
+            <div class="upload-preview" id="previewContainer" style="display: none;">
+              <img id="photoPreview" class="uploaded-image" alt="Preview">
+              <button type="button" class="q-btn q-btn-secondary" style="width: auto; margin-top: 12px;" data-action="pick-photo">Change Photo</button>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <h3>&#10003; Photo Tips</h3>
+            <p>A clear, genuine photo of your face helps others get to know the real you. Avoid filters, group photos, or pictures where your face isn't visible.</p>
+          </div>
+
+          <div class="q-button-group">
+            <button type="button" class="q-btn q-btn-secondary" data-action="prev">Back</button>
+            <button type="button" class="q-btn q-btn-primary" data-action="next">Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 4: About You -->
+      <div class="q-page" data-page="4">
+        <div class="q-form-container">
+          <div class="q-section">
+            <label class="q-label">About You</label>
+            <span class="q-label-secondary">Tell people about yourself (in your own words)</span>
+            <textarea class="q-textarea" id="qBio" placeholder="Share what makes you unique. What do you enjoy doing? What are you looking for? Be authentic!" maxlength="500"></textarea>
+            <div class="char-count"><span id="charCount">0</span>/500</div>
+          </div>
+
+          <div class="q-section">
+            <label class="q-label">What Are You Looking For?</label>
+            <div class="radio-group">
+              <div class="radio-option" data-action="select-radio">
+                <input type="radio" name="lookingFor" value="relationship">
+                <div class="radio-option-content">
+                  <span class="radio-label-main">&#128149; Long-term relationship</span>
+                </div>
+              </div>
+              <div class="radio-option" data-action="select-radio">
+                <input type="radio" name="lookingFor" value="dating">
+                <div class="radio-option-content">
+                  <span class="radio-label-main">&#9749; Casual dating</span>
+                </div>
+              </div>
+              <div class="radio-option" data-action="select-radio">
+                <input type="radio" name="lookingFor" value="friendship">
+                <div class="radio-option-content">
+                  <span class="radio-label-main">&#129309; Meaningful friendship</span>
+                </div>
+              </div>
+            </div>
+            <p class="q-error" id="page4Error">Please tell us about yourself and what you're looking for</p>
+          </div>
+
+          <div class="q-button-group">
+            <button type="button" class="q-btn q-btn-secondary" data-action="prev">Back</button>
+            <button type="button" class="q-btn q-btn-primary" data-action="next">Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 5: Interests -->
+      <div class="q-page" data-page="5">
+        <div class="q-form-container">
+          <div class="q-section">
+            <label class="q-label">What Are Your Interests?</label>
+            <span class="q-label-secondary">Select at least 3 (click to toggle)</span>
+            <div class="tag-container" id="interestsTags">
+              <div class="tag" data-action="toggle-tag">&#128218; Books</div>
+              <div class="tag" data-action="toggle-tag">&#127916; Movies</div>
+              <div class="tag" data-action="toggle-tag">&#9968;&#65039; Hiking</div>
+              <div class="tag" data-action="toggle-tag">&#128104;&#8205;&#127859; Cooking</div>
+              <div class="tag" data-action="toggle-tag">&#127918; Gaming</div>
+              <div class="tag" data-action="toggle-tag">&#127912; Art</div>
+              <div class="tag" data-action="toggle-tag">&#127925; Music</div>
+              <div class="tag" data-action="toggle-tag">&#128170; Fitness</div>
+              <div class="tag" data-action="toggle-tag">&#9992;&#65039; Travel</div>
+              <div class="tag" data-action="toggle-tag">&#9997;&#65039; Writing</div>
+              <div class="tag" data-action="toggle-tag">&#129495; Yoga</div>
+              <div class="tag" data-action="toggle-tag">&#129330; Volunteering</div>
+            </div>
+            <p class="q-error" id="page5Error">Please select at least 3 interests</p>
+          </div>
+
+          <div class="q-button-group">
+            <button type="button" class="q-btn q-btn-secondary" data-action="prev">Back</button>
+            <button type="button" class="q-btn q-btn-primary" data-action="next">Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 6: Account Setup -->
+      <div class="q-page" data-page="6">
+        <div class="q-form-container">
+          <div class="verification-note">
+            <h4>&#128274; Create Your Account</h4>
+            <p>Set up your login credentials to secure your profile.</p>
+          </div>
+
+          <div class="q-section">
+            <label class="q-label">Email</label>
+            <input type="email" class="q-input" id="qEmail" placeholder="you@example.com">
+          </div>
+
+          <div class="q-section">
+            <label class="q-label">Password</label>
+            <input type="password" class="q-input" id="qPassword" placeholder="At least 6 characters" minlength="6">
+          </div>
+
+          <div class="q-section">
+            <label class="q-label">Confirm Password</label>
+            <input type="password" class="q-input" id="qPasswordConfirm" placeholder="Confirm your password">
+            <p class="q-error" id="page6Error">Please fill in all fields correctly</p>
+          </div>
+
+          <div class="info-card">
+            <h3>&#128274; Your Privacy</h3>
+            <p>Your email is encrypted and only used for login. We'll never share it with other members.</p>
+          </div>
+
+          <div class="q-button-group">
+            <button type="button" class="q-btn q-btn-secondary" data-action="prev">Back</button>
+            <button type="button" class="q-btn q-btn-primary" data-action="next">Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 7: Community Guidelines -->
+      <div class="q-page" data-page="7">
+        <div class="q-form-container">
+          <div class="q-section">
+            <label class="q-label">Accept Community Guidelines</label>
+            <div class="guidelines-box">
+              <h4>INTRO Community Standards</h4>
+              <ul class="guidelines-list">
+                <li>&#10003; Be respectful and authentic in all interactions</li>
+                <li>&#10003; No harassment, hate speech, or discrimination</li>
+                <li>&#10003; Don't share explicit content without consent</li>
+                <li>&#10003; No scams, catfishing, or misleading information</li>
+                <li>&#10003; Respect boundaries and consent always</li>
+                <li>&#10003; Report suspicious behavior immediately</li>
+                <li>&#10003; No bots, fake accounts, or commercial spam</li>
+                <li>&#10003; Violation = account suspension or permanent ban</li>
+              </ul>
+            </div>
+
+            <div class="checkbox-option">
+              <input type="checkbox" id="agreeGuidelines">
+              <label for="agreeGuidelines">I agree to follow INTRO's Community Guidelines and understand that violations result in account suspension</label>
+            </div>
+
+            <div class="checkbox-option">
+              <input type="checkbox" id="agreePrivacy">
+              <label for="agreePrivacy">I've read and agree to INTRO's <a href="#">Privacy Policy</a></label>
+            </div>
+            <p class="q-error" id="page7Error">Please accept both agreements to continue</p>
+          </div>
+
+          <div class="q-button-group">
+            <button type="button" class="q-btn q-btn-secondary" data-action="prev">Back</button>
+            <button type="button" class="q-btn q-btn-primary" id="createProfileBtn" data-action="submit-profile">Create My Profile</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page 8: Success -->
+      <div class="q-page" data-page="8">
+        <div class="success-page">
+          <div class="success-icon">&#127881;</div>
+          <h1 class="success-title">Welcome to INTRO</h1>
+          <p class="success-message">Your profile is live! Start connecting with thoughtful, genuine people who prefer meaningful conversations.</p>
+          
+          <div class="info-card" style="text-align: left; margin-bottom: 24px;">
+            <h3>&#10003; What Happens Next</h3>
+            <p>Your profile is now visible to other INTRO members. Start browsing and connecting right now!</p>
+          </div>
+
+          <button class="q-btn q-btn-primary" data-action="start-app" style="width: 100%;">Start Connecting</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container" id="mainApp" style="display: none;">
+    <header class="app-header">
+      <h1>Intro</h1>
+      <p class="tagline">Connect Without Connecting</p>
+    </header>
+    
+    <main class="main-content">
+      <!-- Discover Tab -->
+      <div class="tab-content" id="discover-tab">
+        <div class="card-stack">
+          <div class="profile-card" id="currentCard">
+            <div class="profile-image">
+              <div class="placeholder-avatar"></div>
+            </div>
+            <div class="profile-info">
+              <h2 class="profile-name">Welcome to Intro</h2>
+              <p class="profile-bio">A modern dating platform for introverts and homebodies to connect online through simple swiping, matching, and optional interactive virtual experiences.</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="action-buttons">
+          <button class="action-btn pass" id="passBtn" aria-label="Pass">
+            <span class="icon">✕</span>
+          </button>
+          <button class="action-btn like" id="likeBtn" aria-label="Like">
+            <span class="icon">♥</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Matches Tab -->
+      <div class="tab-content" id="matches-tab">
+        <div class="section-title">Your Matches</div>
+        <div class="matches-list" id="matchesList">
+          <div class="no-matches">No matches yet. Start swiping to find your people!</div>
+        </div>
+      </div>
+      
+      <!-- Chat Modal -->
+      <div class="chat-modal" id="chatModal">
+        <div class="chat-header">
+          <button class="chat-back" id="chatBack">‹</button>
+          <div class="chat-title" id="chatTitle">Chat</div>
+        </div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-area">
+          <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
+          <button class="chat-send" id="chatSend">Send</button>
+        </div>
+      </div>
+
+      <!-- Experiences Tab -->
+      <div class="tab-content" id="experiences-tab">
+        <div class="section-title">Virtual Experiences</div>
+        <div class="experiences-grid">
+          <div class="experience-card" data-experience="cafe">
+            <div class="exp-icon">☕</div>
+            <h3>Virtual Cafe</h3>
+            <p>Cozy coffee chat with someone new</p>
+            <p class="coming-soon">Coming Soon</p>
+          </div>
+          <div class="experience-card" data-experience="movie">
+            <div class="exp-icon">🎬</div>
+            <h3>Movie Night</h3>
+            <p>Watch together and chat</p>
+            <p class="coming-soon">Coming Soon</p>
+          </div>
+          <div class="experience-card" data-experience="gaming">
+            <div class="exp-icon">🎮</div>
+            <h3>Gaming</h3>
+            <p>Play games together online</p>
+            <p class="coming-soon">Coming Soon</p>
+          </div>
+          <div class="experience-card" data-experience="book">
+            <div class="exp-icon">📚</div>
+            <h3>Book Club</h3>
+            <p>Discuss books with fellow readers</p>
+            <p class="coming-soon">Coming Soon</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Experience Preview Modal -->
+      <div class="modal-overlay" id="experienceModal">
+        <div class="modal-content">
+          <button class="modal-close" id="closeModal">&times;</button>
+          <div class="modal-body" id="modalBody">
+            <!-- Dynamic content goes here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Tab -->
+      <div class="tab-content active" id="profile-tab">
+        <div class="profile-section">
+          <div class="profile-avatar-large initials" id="profileInitials"></div>
+          <h2>Your Profile</h2>
+          <div class="profile-form">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" id="profileName" placeholder="Your name">
+            </div>
+            <div class="form-group">
+              <label>Age</label>
+              <input type="number" id="profileAge" placeholder="Your age">
+            </div>
+            <div class="form-group">
+              <label>Bio</label>
+              <textarea id="profileBio" placeholder="Tell us about yourself"></textarea>
+            </div>
+            <button class="save-btn" id="saveProfileBtn">Save Profile</button>
+            <button class="logout-btn" id="logoutBtn">Log Out</button>
+          </div>
+        </div>
+      </div>
+    </main>
+    
+    <nav class="bottom-nav">
+      <button class="nav-item" data-tab="discover">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-label">Discover</span>
+      </button>
+      <button class="nav-item" data-tab="matches">
+        <span class="nav-icon">💬</span>
+        <span class="nav-label">Matches</span>
+      </button>
+      <button class="nav-item" data-tab="experiences">
+        <span class="nav-icon">☕</span>
+        <span class="nav-label">Experiences</span>
+      </button>
+      <button class="nav-item active" data-tab="profile">
+        <span class="nav-icon">👤</span>
+        <span class="nav-label">Profile</span>
+      </button>
+    </nav>
+  </div>
+  
+  <script src="./app.js"></script>
+</body>
+</html>
