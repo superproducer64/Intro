@@ -432,12 +432,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadProfiles() {
       try {
         const authData = JSON.parse(localStorage.getItem(AUTH_KEY) || '{}');
-        const userId = authData.user?.id;
-        let url = '/api/profiles';
-        if (userId) {
-          url += `?exclude_user_id=${userId}`;
-        }
-        const res = await fetch(url);
+        const res = await fetch('/api/match/profiles', {
+          headers: {
+            'Authorization': `Bearer ${authData.token}`
+          }
+        });
         if (res.ok) {
           profiles = await res.json();
           if (profiles.length > 0) updateCard();
