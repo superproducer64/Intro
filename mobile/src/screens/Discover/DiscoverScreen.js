@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Image, Alert } from 'react-native';
 import * as api from '../../services/api';
 import ReportBlockModal from '../../components/ReportBlockModal';
-import { COLORS } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 
 const DiscoverScreen = () => {
   const [profiles, setProfiles] = useState([]);
@@ -47,32 +47,39 @@ const DiscoverScreen = () => {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg, padding: 20, paddingTop: 60 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg, padding: SPACING.lg, paddingTop: 60 }}>
       <Text style={{ fontSize: 32, fontWeight: '300', color: COLORS.text, marginBottom: 8 }}>Intro</Text>
-      <Text style={{ fontSize: 18, color: COLORS.textSecondary, marginBottom: 20 }}>
+      <Text style={{ fontSize: 18, color: COLORS.textSecondary, marginBottom: SPACING.xl }}>
         Thoughtful matches for deep connections
       </Text>
 
       {profiles.map((profile) => (
         <View key={profile.id} style={{
           backgroundColor: COLORS.bgCard,
-          borderRadius: 20,
-          padding: 20,
-          marginBottom: 20,
+          borderRadius: BORDER_RADIUS.xl,
+          padding: SPACING.xl,
+          marginBottom: SPACING.xl,
           borderWidth: 1,
           borderColor: COLORS.border,
           shadowColor: COLORS.cardShadow,
+          shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1,
-          shadowRadius: 10,
+          shadowRadius: 14,
+          elevation: 3,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Text style={{ fontSize: 26, fontWeight: '300', color: COLORS.text, flex: 1 }}>
-              {profile.name}, {profile.age}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', flex: 1 }}>
+              <Text style={{ fontSize: 28, fontWeight: '300', color: COLORS.text }}>
+                {profile.name}
+              </Text>
+              <Text style={{ fontSize: 16, color: COLORS.textSecondary, marginLeft: SPACING.xs }}>
+                · {profile.age}
+              </Text>
+            </View>
             <Pressable
               onPress={() => setReportTarget(profile)}
               hitSlop={12}
-              style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+              style={{ paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs }}
               accessibilityLabel={`Report or block ${profile.name}`}
             >
               <Text style={{ fontSize: 22, color: COLORS.textMuted }}>⋯</Text>
@@ -80,26 +87,24 @@ const DiscoverScreen = () => {
           </View>
 
           {profile.photos?.[0] && (
-            <Image source={{ uri: profile.photos[0] }} style={{ width: '100%', height: 280, borderRadius: 16, marginTop: 12 }} />
+            <Image source={{ uri: profile.photos[0] }} style={{ width: '100%', height: 280, borderRadius: BORDER_RADIUS.lg, marginTop: SPACING.md }} />
           )}
 
-          <Text style={{ color: COLORS.textSecondary, marginTop: 8, lineHeight: 22 }}>{profile.bio}</Text>
+          <Text style={{ fontSize: 15, color: COLORS.textSecondary, marginTop: SPACING.md, lineHeight: 24 }}>{profile.bio}</Text>
 
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-            <Pressable
-              onPress={() => handleLike(profile.id)}
-              style={{ flex: 1, backgroundColor: COLORS.accent, padding: 16, borderRadius: 999, alignItems: 'center' }}
-            >
-              <Text style={{ color: 'white', fontWeight: '600' }}>Send Gentle Connection</Text>
-            </Pressable>
+          <Pressable
+            onPress={() => handleLike(profile.id)}
+            style={{ backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.round, paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.xl }}
+          >
+            <Text style={{ color: COLORS.text, fontWeight: '600', fontSize: 16 }}>Send Gentle Connection</Text>
+          </Pressable>
 
-            <Pressable
-              onPress={() => Alert.alert('Passed')}
-              style={{ flex: 1, backgroundColor: COLORS.bgLight, padding: 16, borderRadius: 999, alignItems: 'center' }}
-            >
-              <Text style={{ color: COLORS.textMuted }}>Pass</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => Alert.alert('Passed')}
+            style={{ paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.md }}
+          >
+            <Text style={{ color: COLORS.textMuted, fontSize: 14, fontWeight: '500' }}>Pass</Text>
+          </Pressable>
         </View>
       ))}
 
