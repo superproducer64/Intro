@@ -848,11 +848,11 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         if (data.type === 'message') {
-          const msg = data.data;
+          const msg = data;
           // Add to messages if it's for current chat
-          if (chatModal.classList.contains('active') && 
-              ((msg.sender_id == currentUserId && msg.receiver_id == currentMatchUserId) ||
-               (msg.sender_id == currentMatchUserId && msg.receiver_id == currentUserId))) {
+          if (chatModal.classList.contains('active') &&
+              ((msg.senderId == currentUserId && msg.receiverId == currentMatchUserId) ||
+               (msg.senderId == currentMatchUserId && msg.receiverId == currentUserId))) {
             chatMessagesList.push(msg);
             renderMessages();
           }
@@ -921,8 +921,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       chatMessages.innerHTML = chatMessagesList.map(msg => {
-        const isSent = msg.sender_id == currentUserId;
-        return `<div class="chat-bubble ${isSent ? 'sent' : 'received'}">${escapeHtml(msg.message)}</div>`;
+        const isSent = msg.senderId == currentUserId;
+        return `<div class="chat-bubble ${isSent ? 'sent' : 'received'}">${escapeHtml(msg.text)}</div>`;
       }).join('');
       
       chatMessages.scrollTop = chatMessages.scrollHeight;
