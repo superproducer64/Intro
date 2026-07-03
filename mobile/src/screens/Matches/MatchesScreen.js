@@ -28,14 +28,14 @@ export default function MatchesScreen({ navigation }) {
   const renderMatch = ({ item }) => (
     <TouchableOpacity
       style={styles.matchCard}
-      onPress={() => navigation.navigate('Chat', { matchUserId: item.user_id, matchName: item.name })}
+      onPress={() => navigation.navigate('Chat', { matchUserId: item.user?.id, matchName: item.user?.name })}
     >
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.name?.charAt(0) || '?'}</Text>
+        <Text style={styles.avatarText}>{item.user?.name?.charAt(0) || '?'}</Text>
       </View>
       <View style={styles.matchInfo}>
-        <Text style={styles.matchName}>{item.name}</Text>
-        <Text style={styles.matchBio} numberOfLines={1}>{item.bio || 'Say hello!'}</Text>
+        <Text style={styles.matchName}>{item.user?.name || 'Unknown'}</Text>
+        <Text style={styles.matchBio} numberOfLines={1}>{item.user?.bio || 'Say hello!'}</Text>
       </View>
       <Text style={styles.arrow}>›</Text>
     </TouchableOpacity>
@@ -61,7 +61,7 @@ export default function MatchesScreen({ navigation }) {
       ) : (
         <FlatList
           data={matches}
-          keyExtractor={(item) => item.match_id.toString()}
+          keyExtractor={(item) => String(item.id ?? item.matchedAt ?? Math.random())}
           renderItem={renderMatch}
           contentContainerStyle={styles.list}
         />
