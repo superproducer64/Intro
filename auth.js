@@ -7,7 +7,7 @@ const { pool, userTokens, buildUserShape } = require('./db');
 
 router.post('/register', async (req, res) => {
   console.log('[REGISTER] Request body:', JSON.stringify(req.body));
-  const { name, email, password, age, bio } = req.body;
+  const { name, email, password, age, bio, personality, lookingFor, location, interests } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Name, email, and password are required' });
@@ -39,8 +39,8 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const userResult = await pool.query(
-      'INSERT INTO users (name, email, password, age, bio, tos_accepted_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id',
-      [name.trim(), email.toLowerCase(), hashedPassword, ageNum, bio || '']
+      'INSERT INTO users (name, email, password, age, bio, personality_type, looking_for, location, tos_accepted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING id',
+      [name.trim(), email.toLowerCase(), hashedPassword, ageNum, bio || '', personality || null, lookingFor || null, location || null]
     );
 
     const userId = userResult.rows[0].id;
@@ -50,6 +50,16 @@ router.post('/register', async (req, res) => {
       'INSERT INTO profiles (user_id, name, bio, sort_order) VALUES ($1, $2, $3, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM profiles))',
       [userId, profileName, bio || '']
     );
+
+    if (Array.isArray(interests) && interests.length > 0) {
+      try {
+        for (const interest of interests) {
+          await pool.query('INSERT INTO interests (user_id, interest) VALUES ($1, $2)', [userId, interest]);
+        }
+      } catch (interestError) {
+        console.error('Interest insert error:', interestError);
+      }
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     userTokens.set(token, userId);
