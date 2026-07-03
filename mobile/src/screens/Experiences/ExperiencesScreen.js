@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, Image } from 'react-native';
 import * as api from '../../services/api';
+import { COLORS } from '../../constants/theme';
 
 const ExperiencesScreen = () => {
   const [rooms, setRooms] = useState([]);
@@ -53,50 +54,50 @@ const ExperiencesScreen = () => {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#1A1A2E', padding: 20, paddingTop: 60 }}>
-      <Text style={{ fontSize: 32, fontWeight: '300', color: 'white', marginBottom: 8 }}>Experiences</Text>
-      <Text style={{ fontSize: 18, color: '#AAA', marginBottom: 30 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg, padding: 20, paddingTop: 60 }}>
+      <Text style={{ fontSize: 32, fontWeight: '300', color: COLORS.text, marginBottom: 8 }}>Experiences</Text>
+      <Text style={{ fontSize: 18, color: COLORS.textSecondary, marginBottom: 30 }}>
         Virtual activities to enjoy together
       </Text>
 
       {/* Virtual Café */}
-      <Pressable 
+      <Pressable
         onPress={() => createRoom('cafe')}
-        style={{ backgroundColor: '#2A2A4A', borderRadius: 20, padding: 20, marginBottom: 16 }}
+        style={{ backgroundColor: COLORS.bgCard, borderRadius: 20, padding: 20, marginBottom: 16 }}
       >
         <Text style={{ fontSize: 28 }}>☕</Text>
-        <Text style={{ fontSize: 22, color: 'white', marginTop: 8 }}>Virtual Café</Text>
-        <Text style={{ color: '#CCC', marginTop: 4 }}>Share a quiet coffee date from home</Text>
+        <Text style={{ fontSize: 22, color: COLORS.text, marginTop: 8 }}>Virtual Café</Text>
+        <Text style={{ color: COLORS.textSecondary, marginTop: 4 }}>Share a quiet coffee date from home</Text>
       </Pressable>
 
       {/* Movie Night */}
-      <Pressable 
+      <Pressable
         onPress={launchMovieNight}
-        style={{ backgroundColor: '#2A2A4A', borderRadius: 20, padding: 20, marginBottom: 16 }}
+        style={{ backgroundColor: COLORS.bgCard, borderRadius: 20, padding: 20, marginBottom: 16 }}
       >
         <Text style={{ fontSize: 28 }}>🎥</Text>
-        <Text style={{ fontSize: 22, color: 'white', marginTop: 8 }}>Movie Night</Text>
-        <Text style={{ color: '#CCC', marginTop: 4 }}>Watch together in a shared virtual theater</Text>
+        <Text style={{ fontSize: 22, color: COLORS.text, marginTop: 8 }}>Movie Night</Text>
+        <Text style={{ color: COLORS.textSecondary, marginTop: 4 }}>Watch together in a shared virtual theater</Text>
       </Pressable>
 
       {/* Game Night */}
-      <Pressable 
+      <Pressable
         onPress={() => createRoom('game')}
-        style={{ backgroundColor: '#2A2A4A', borderRadius: 20, padding: 20 }}
+        style={{ backgroundColor: COLORS.bgCard, borderRadius: 20, padding: 20 }}
       >
         <Text style={{ fontSize: 28 }}>🎲</Text>
-        <Text style={{ fontSize: 22, color: 'white', marginTop: 8 }}>Game Night</Text>
-        <Text style={{ color: '#CCC', marginTop: 4 }}>Play casual games together online</Text>
+        <Text style={{ fontSize: 22, color: COLORS.text, marginTop: 8 }}>Game Night</Text>
+        <Text style={{ color: COLORS.textSecondary, marginTop: 4 }}>Play casual games together online</Text>
       </Pressable>
 
       {/* Active Rooms */}
       {rooms.length > 0 && (
         <View style={{ marginTop: 40 }}>
-          <Text style={{ fontSize: 20, color: 'white', marginBottom: 12 }}>Happening Now</Text>
+          <Text style={{ fontSize: 20, color: COLORS.text, marginBottom: 12 }}>Happening Now</Text>
           {rooms.map(room => (
-            <View key={room.id} style={{ backgroundColor: '#16213E', padding: 16, borderRadius: 16, marginBottom: 12 }}>
-              <Text style={{ color: 'white', fontSize: 18 }}>{room.title}</Text>
-              <Text style={{ color: '#888' }}>Hosted by {room.host_name || 'Someone'}</Text>
+            <View key={room.id} style={{ backgroundColor: COLORS.bgLight, padding: 16, borderRadius: 16, marginBottom: 12 }}>
+              <Text style={{ color: COLORS.text, fontSize: 18 }}>{room.title}</Text>
+              <Text style={{ color: COLORS.textMuted }}>Hosted by {room.host_name || 'Someone'}</Text>
             </View>
           ))}
         </View>
