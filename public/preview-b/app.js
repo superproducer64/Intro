@@ -727,9 +727,12 @@ document.addEventListener('DOMContentLoaded', () => {
           const targetUrl = launchBtn.dataset.url || 'https://www.youtube.com';
           
           try {
-            const response = await fetch('/api/hyperbeam/create', {
+            const response = await fetch('/api/cafe/hyperbeam/create', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+              },
               body: JSON.stringify({ url: targetUrl })
             });
             
