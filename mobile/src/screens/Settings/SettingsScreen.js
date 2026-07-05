@@ -12,7 +12,7 @@ export default function SettingsScreen({ navigation }) {
       {
         text: 'Log Out',
         onPress: async () => {
-          await api.clearAuth();
+          await api.logout();
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
         },
       },

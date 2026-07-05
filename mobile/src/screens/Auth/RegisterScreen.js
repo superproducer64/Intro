@@ -70,25 +70,35 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
     setLoading(true);
+    let data;
     try {
-      await api.register({ name, email: email.trim().toLowerCase(), password, age: parseInt(age), bio });
+      data = await api.register({
+        name,
+        email: email.trim().toLowerCase(),
+        password,
+        age: parseInt(age),
+        bio,
+        personalityType: personality,
+        lookingFor,
+        location,
+      });
     } catch (e) {
       Alert.alert('Registration Failed', e.message);
       setLoading(false);
       return;
     }
 
-    try {
-      await api.updateProfile({ personalityType: personality, lookingFor, location, interests });
-    } catch (e) {
-      console.warn('Profile update failed after registration:', e.message);
+    setLoading(false);
+
+    if (data.needsEmailConfirmation) {
       Alert.alert(
-        'Profile Setup Incomplete',
-        'Your account was created, but some profile details couldn\'t be saved. You can finish this in Settings.'
+        'Confirm Your Email',
+        'Check your inbox for a confirmation link, then sign in to finish setting up your profile.'
       );
+      navigation.goBack();
+      return;
     }
 
-    setLoading(false);
     navigation.replace('ProfileSetup');
   };
 

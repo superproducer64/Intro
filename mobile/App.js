@@ -14,8 +14,8 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
-      const stored = await api.loadStoredAuth();
-      if (stored?.token) {
+      const session = await api.initAuth();
+      if (session) {
         setInitialRoute('Main');
         api.connectWS(null);
       }

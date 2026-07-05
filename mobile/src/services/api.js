@@ -1,6 +1,6 @@
 // src/services/api.js
-import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
+import { supabase } from './supabase';
 
 const _apiBase =
   Constants?.expoConfig?.extra?.apiUrl ||
@@ -9,45 +9,32 @@ const _apiBase =
 const API_URL = _apiBase;
 const WS_URL = _apiBase.replace(/^http/, 'ws');
 
-let authToken = null;
-let currentUser = null;
+let currentSession = null;
 let wsConnection = null;
 let messageListeners = [];
 
-export async function loadStoredAuth() {
-  try {
-    const stored = await SecureStore.getItemAsync('intro_auth');
-    if (stored) {
-      const data = JSON.parse(stored);
-      authToken = data.token;
-      currentUser = data.user;
-      return data;
-    }
-  } catch (e) {
-    console.error('Failed to load auth:', e);
-  }
-  return null;
+// ==================== SESSION ====================
+export async function initAuth() {
+  const { data: { session } } = await supabase.auth.getSession();
+  currentSession = session;
+  supabase.auth.onAuthStateChange((_event, session) => {
+    currentSession = session;
+    if (!session) disconnectWS();
+  });
+  return session;
 }
 
-async function saveAuth(token, user) {
-  authToken = token;
-  currentUser = user;
-  await SecureStore.setItemAsync('intro_auth', JSON.stringify({ token, user }));
-}
+export function getSession() { return currentSession; }
+export function getUser() { return currentSession?.user || null; }
 
-export async function clearAuth() {
-  authToken = null;
-  currentUser = null;
-  await SecureStore.deleteItemAsync('intro_auth');
-  disconnectWS();
+function ageToBirthdate(age) {
+  const year = new Date().getFullYear() - age;
+  return `${year}-01-01`;
 }
-
-export function getToken() { return authToken; }
-export function getUser() { return currentUser; }
 
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  if (currentSession?.access_token) headers['Authorization'] = `Bearer ${currentSession.access_token}`;
 
   const url = `${API_URL}${path}`;
   console.log(`API Request: ${options.method || 'GET'} ${url}`);
@@ -68,33 +55,63 @@ async function request(path, options = {}) {
 }
 
 // ==================== AUTH ====================
-export async function register({ name, email, password, age, bio }) {
-  const data = await request('/api/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ name, email, password, age, bio }),
+export async function register({ name, email, password, age, bio, personalityType, lookingFor, location }) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name } },
   });
-  await saveAuth(data.token, data.user);
+  if (error) throw new Error(error.message);
+
+  if (!data.session) {
+    // Email confirmation is required before a session (and RLS-protected writes) is available.
+    return { ...data, needsEmailConfirmation: true };
+  }
+
+  const profileUpdates = {};
+  if (age != null) profileUpdates.birthdate = ageToBirthdate(age);
+  if (bio) profileUpdates.bio = bio;
+  if (personalityType) profileUpdates.personality_type = personalityType;
+  if (lookingFor) profileUpdates.looking_for = lookingFor;
+  if (location) profileUpdates.location = location;
+
+  if (Object.keys(profileUpdates).length > 0) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update(profileUpdates)
+      .eq('id', data.user.id);
+    if (profileError) console.warn('Profile update after signup failed:', profileError.message);
+  }
+
   return data;
 }
 
 export async function login(email, password) {
-  const data = await request('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
-  await saveAuth(data.token, data.user);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
   return data;
 }
 
-export async function appleSignIn(identityToken, name, email, age) {
-  const data = await request('/api/auth/apple', {
-    method: 'POST',
-    body: JSON.stringify({ identityToken, name, email, age }),
+export async function logout() {
+  await supabase.auth.signOut();
+  disconnectWS();
+}
+
+export async function appleSignIn(identityToken, name, email) {
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'apple',
+    token: identityToken,
+    options: { data: name ? { name } : undefined },
   });
-  // If server requires age, surface that to the caller
-  if (!data.token && data.requiresAge) return data;
-  await saveAuth(data.token, data.user);
-  return data;
+  if (error) throw new Error(error.message);
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('birthdate')
+    .eq('id', data.user.id)
+    .single();
+
+  return { ...data, isNewUser: !profile?.birthdate };
 }
 
 // ==================== MATCHING ====================
@@ -168,8 +185,8 @@ export function connectWS(onMessage) {
   wsConnection = new WebSocket(WS_URL);
 
   wsConnection.onopen = () => {
-    if (authToken) {
-      wsConnection.send(JSON.stringify({ type: 'auth', token: authToken }));
+    if (currentSession?.access_token) {
+      wsConnection.send(JSON.stringify({ type: 'auth', token: currentSession.access_token }));
     }
   };
 
@@ -181,7 +198,7 @@ export function connectWS(onMessage) {
 
   wsConnection.onclose = () => {
     setTimeout(() => {
-      if (authToken) connectWS(onMessage);
+      if (currentSession) connectWS(onMessage);
     }, 3000);
   };
 }
