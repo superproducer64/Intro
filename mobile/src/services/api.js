@@ -32,6 +32,16 @@ function ageToBirthdate(age) {
   return `${year}-01-01`;
 }
 
+function birthdateToAge(birthdate) {
+  if (!birthdate) return null;
+  const birth = new Date(birthdate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (currentSession?.access_token) headers['Authorization'] = `Bearer ${currentSession.access_token}`;
@@ -116,18 +126,99 @@ export async function appleSignIn(identityToken, name, email) {
 
 // ==================== MATCHING ====================
 export async function getProfiles() {
-  return request('/api/match/profiles');
+  const user = getUser();
+  if (!user) return [];
+
+  const { data: swiped, error: swipedError } = await supabase
+    .from('swipes')
+    .select('target_id')
+    .eq('swiper_id', user.id);
+  if (swipedError) throw new Error(swipedError.message);
+  const swipedIds = (swiped || []).map((s) => s.target_id);
+
+  let query = supabase
+    .from('profiles')
+    .select('id, name, birthdate, bio, photo_url, personality_type, looking_for, location, prompts(prompt_question, answer, sort_order)')
+    .neq('id', user.id)
+    .order('sort_order', { foreignTable: 'prompts' });
+  if (swipedIds.length) query = query.not('id', 'in', `(${swipedIds.join(',')})`);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    age: birthdateToAge(row.birthdate),
+    bio: row.bio ?? '',
+    photos: row.photo_url ? [row.photo_url] : [],
+    prompts: (row.prompts ?? []).map((p) => ({ prompt_question: p.prompt_question, prompt_answer: p.answer })),
+    personality_type: row.personality_type ?? null,
+    looking_for: row.looking_for ?? null,
+    location: row.location ?? null,
+  }));
 }
 
 export async function likeUser(likedUserId) {
-  return request('/api/match/like', {
-    method: 'POST',
-    body: JSON.stringify({ likedUserId }),
-  });
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { error: upsertError } = await supabase
+    .from('swipes')
+    .upsert(
+      { swiper_id: user.id, target_id: likedUserId, direction: 'like' },
+      { onConflict: 'swiper_id,target_id' }
+    );
+  if (upsertError) throw new Error(upsertError.message);
+
+  const { data, error } = await supabase
+    .from('matches')
+    .select('id')
+    .or(`and(user1_id.eq.${user.id},user2_id.eq.${likedUserId}),and(user1_id.eq.${likedUserId},user2_id.eq.${user.id})`)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  return { match: !!data };
+}
+
+export async function passUser(targetId) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+  const { error } = await supabase
+    .from('swipes')
+    .upsert(
+      { swiper_id: user.id, target_id: targetId, direction: 'pass' },
+      { onConflict: 'swiper_id,target_id', ignoreDuplicates: true }
+    );
+  if (error) throw new Error(error.message);
 }
 
 export async function getMatches() {
-  return request('/api/match/matches');
+  const user = getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('matches')
+    .select(`
+      id,
+      created_at,
+      user1_id,
+      user2_id,
+      user1:profiles!matches_user1_id_fkey(id, name, bio),
+      user2:profiles!matches_user2_id_fkey(id, name, bio)
+    `)
+    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((row) => {
+    const other = row.user1_id === user.id ? row.user2 : row.user1;
+    return {
+      id: row.id,
+      matchedAt: row.created_at,
+      user: other ? { id: other.id, name: other.name, bio: other.bio ?? '' } : null,
+    };
+  });
 }
 
 // ==================== CAFÉ ====================
