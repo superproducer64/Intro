@@ -40,6 +40,16 @@ const DiscoverScreen = () => {
     }
   };
 
+  const handlePass = async (userId) => {
+    try {
+      await api.passUser(userId);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pass');
+    } finally {
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    }
+  };
+
   const handleBlocked = (userId) => {
     // Remove the blocked user from the feed instantly
     setProfiles((prev) => prev.filter((p) => p.id !== userId));
@@ -100,7 +110,7 @@ const DiscoverScreen = () => {
           </Pressable>
 
           <Pressable
-            onPress={() => Alert.alert('Passed')}
+            onPress={() => handlePass(profile.id)}
             style={{ paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.md }}
           >
             <Text style={{ color: COLORS.textMuted, fontSize: 14, fontWeight: '500' }}>Pass</Text>
