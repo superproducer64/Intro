@@ -17,7 +17,7 @@ export default function App() {
       const session = await api.initAuth();
       if (session) {
         setInitialRoute('Main');
-        api.connectWS(null);
+        api.subscribeToMessages();
       }
       setReady(true);
       setTimeout(() => {

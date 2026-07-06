@@ -7,11 +7,10 @@ const _apiBase =
   'https://intro-bgpstudioshou.replit.app';
 
 const API_URL = _apiBase;
-const WS_URL = _apiBase.replace(/^http/, 'ws');
 
 let currentSession = null;
-let wsConnection = null;
 let messageListeners = [];
+let messagesChannel = null;
 
 // ==================== SESSION ====================
 export async function initAuth() {
@@ -19,7 +18,11 @@ export async function initAuth() {
   currentSession = session;
   supabase.auth.onAuthStateChange((_event, session) => {
     currentSession = session;
-    if (!session) disconnectWS();
+    if (session) {
+      subscribeToMessages();
+    } else {
+      unsubscribeFromMessages();
+    }
   });
   return session;
 }
@@ -104,7 +107,7 @@ export async function login(email, password) {
 
 export async function logout() {
   await supabase.auth.signOut();
-  disconnectWS();
+  unsubscribeFromMessages();
 }
 
 export async function appleSignIn(identityToken, name, email) {
@@ -268,42 +271,73 @@ export async function updateProfile(data) {
 }
 
 export async function getMessages(matchUserId) {
-  return request(`/api/messages/${matchUserId}`);
+  const user = getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id, sender_id, receiver_id, body, created_at')
+    .or(`and(sender_id.eq.${user.id},receiver_id.eq.${matchUserId}),and(sender_id.eq.${matchUserId},receiver_id.eq.${user.id})`)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    sender_id: row.sender_id,
+    receiver_id: row.receiver_id,
+    message: row.body,
+    created_at: row.created_at,
+  }));
 }
 
-export function connectWS(onMessage) {
-  if (wsConnection) wsConnection.close();
-  wsConnection = new WebSocket(WS_URL);
+export async function sendMessage(matchId, receiverId, text) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
 
-  wsConnection.onopen = () => {
-    if (currentSession?.access_token) {
-      wsConnection.send(JSON.stringify({ type: 'auth', token: currentSession.access_token }));
-    }
-  };
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({ match_id: matchId, sender_id: user.id, receiver_id: receiverId, body: text })
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
 
-  wsConnection.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (onMessage) onMessage(data);
-    messageListeners.forEach(fn => fn(data));
-  };
-
-  wsConnection.onclose = () => {
-    setTimeout(() => {
-      if (currentSession) connectWS(onMessage);
-    }, 3000);
+  return {
+    id: data.id,
+    sender_id: data.sender_id,
+    receiver_id: data.receiver_id,
+    message: data.body,
+    created_at: data.created_at,
   };
 }
 
-export function sendWSMessage(receiverId, text) {
-  if (wsConnection?.readyState === WebSocket.OPEN) {
-    wsConnection.send(JSON.stringify({ type: 'message', receiverId, text }));
-  }
+export function subscribeToMessages() {
+  const user = getUser();
+  if (!user || messagesChannel) return;
+
+  messagesChannel = supabase
+    .channel(`messages:receiver:${user.id}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` },
+      (payload) => {
+        const row = payload.new;
+        const mapped = {
+          id: row.id,
+          sender_id: row.sender_id,
+          receiver_id: row.receiver_id,
+          message: row.body,
+          created_at: row.created_at,
+        };
+        messageListeners.forEach(fn => fn({ type: 'message', data: mapped }));
+      }
+    )
+    .subscribe();
 }
 
-export function disconnectWS() {
-  if (wsConnection) {
-    wsConnection.close();
-    wsConnection = null;
+export function unsubscribeFromMessages() {
+  if (messagesChannel) {
+    supabase.removeChannel(messagesChannel);
+    messagesChannel = null;
   }
 }
 

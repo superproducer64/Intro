@@ -28,7 +28,7 @@ export default function MatchesScreen({ navigation }) {
   const renderMatch = ({ item }) => (
     <TouchableOpacity
       style={styles.matchCard}
-      onPress={() => navigation.navigate('Chat', { matchUserId: item.user?.id, matchName: item.user?.name })}
+      onPress={() => navigation.navigate('Chat', { matchId: item.id, matchUserId: item.user?.id, matchName: item.user?.name })}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{item.user?.name?.charAt(0) || '?'}</Text>

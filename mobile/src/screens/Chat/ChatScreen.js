@@ -5,7 +5,7 @@ import * as api from '../../services/api';
 import ReportBlockModal from '../../components/ReportBlockModal';
 
 export default function ChatScreen({ route, navigation }) {
-  const { matchUserId, matchName } = route.params;
+  const { matchId, matchUserId, matchName } = route.params;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -40,10 +40,16 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!text.trim()) return;
-    api.sendWSMessage(matchUserId, text.trim());
+    const trimmed = text.trim();
     setText('');
+    try {
+      const sent = await api.sendMessage(matchId, matchUserId, trimmed);
+      setMessages(prev => [...prev, sent]);
+    } catch (e) {
+      console.error('Send message error:', e);
+    }
   };
 
   const renderMessage = ({ item }) => {
