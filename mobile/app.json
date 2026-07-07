@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.bgpstudios.intro",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Intro needs camera access to take profile photos.",
