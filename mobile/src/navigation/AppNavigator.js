@@ -22,7 +22,7 @@ const AuthStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
-  const icons = { Discover: '🔍', Matches: '💜', Experiences: '✨', Profile: '👤' };
+  const icons = { Discover: '🔍', Matches: '💜', Profile: '👤' };
   return (
     <View style={styles.tabItem}>
       <Text style={styles.tabIcon}>{icons[label]}</Text>
@@ -43,7 +43,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen name="Matches" component={MatchesScreen} />
-      <Tab.Screen name="Experiences" component={ExperiencesScreen} />
+      {/* Experiences (café/movie/game rooms) hidden — still on the Express backend, not yet migrated to Supabase */}
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

@@ -245,29 +245,65 @@ export async function createHyperbeamSession(url) {
 
 // ==================== SAFETY (report & block) ====================
 export async function reportUser(reportedUserId, reason, details) {
-  return request('/api/safety/report', {
-    method: 'POST',
-    body: JSON.stringify({ reportedUserId, reason, details }),
-  });
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { error } = await supabase
+    .from('reports')
+    .insert({ reporter_id: user.id, reported_id: reportedUserId, reason, details });
+  if (error) throw new Error(error.message);
 }
 
 export async function blockUser(blockedUserId) {
-  return request('/api/safety/block', {
-    method: 'POST',
-    body: JSON.stringify({ blockedUserId }),
-  });
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { error } = await supabase
+    .from('blocks')
+    .insert({ blocker_id: user.id, blocked_id: blockedUserId });
+  if (error) throw new Error(error.message);
 }
 
 // ==================== OTHER ====================
 export async function getProfile() {
-  return request('/api/profile');
+  const user = getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, birthdate, bio, personality_type, looking_for, location, photo_url, prompts(prompt_question, answer, sort_order)')
+    .eq('id', user.id)
+    .single();
+  if (error) throw new Error(error.message);
+
+  return {
+    id: data.id,
+    name: data.name,
+    age: birthdateToAge(data.birthdate),
+    bio: data.bio ?? '',
+    photos: data.photo_url ? [data.photo_url] : [],
+    personality_type: data.personality_type ?? null,
+    looking_for: data.looking_for ?? null,
+    location: data.location ?? null,
+    prompts: (data.prompts ?? []).map((p) => ({ prompt_question: p.prompt_question, prompt_answer: p.answer })),
+  };
 }
 
-export async function updateProfile(data) {
-  return request('/api/profile', {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+export async function updateProfile({ name, age, bio, location } = {}) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const updates = { updated_at: new Date().toISOString() };
+  if (name !== undefined) updates.name = name;
+  if (age !== undefined && age !== null) updates.birthdate = ageToBirthdate(age);
+  if (bio !== undefined) updates.bio = bio;
+  if (location !== undefined) updates.location = location;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', user.id);
+  if (error) throw new Error(error.message);
 }
 
 export async function getMessages(matchUserId) {
