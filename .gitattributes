@@ -1,8 +1,10 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
-# Xcode build-phase scripts are sourced by bash on the build machine (including
+# Shell-executed files are sourced/run by bash on the build machine (including
 # EAS Cloud) — CRLF here breaks the build with "command not found" on Windows
 # checkouts where core.autocrlf converts them. Force LF regardless of platform.
+*.sh text eol=lf
 mobile/ios/.xcode.env text eol=lf
 mobile/ios/.xcode.env.local text eol=lf
+gradlew text eol=lf
