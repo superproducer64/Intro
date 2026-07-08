@@ -24,10 +24,6 @@
       "ios": {
         "buildConfiguration": "Release",
         "credentialsSource": "remote"
-      },
-      "env": {
-        "NODE_ENV": "production",
-        "EXPO_PUBLIC_API_DOMAIN": "intro-bgpstudioshou.replit.app"
       }
     }
   },
@@ -37,8 +33,8 @@
         "appleId": "nu2u@sbcglobal.net",
         "ascAppId": "6761438541",
         "appleTeamId": "4JZRW3MPP2",
-        "ascApiKeyPath": "../attached_assets/AuthKey_QWDQ3BX6L2_1780542919913.p8",
-        "ascApiKeyId": "QWDQ3BX6L2",
+        "ascApiKeyPath": "C:/Users/nu2u/Documents/BGP_Studios_Content/AuthKey_DM46S4Z68S.p8",
+        "ascApiKeyId": "DM46S4Z68S",
         "ascApiKeyIssuerId": "d2a1ce37-68d8-4c89-a42c-cc4eb8f14055"
       }
     }
