@@ -14,11 +14,20 @@ let messagesChannel = null;
 
 // ==================== SESSION ====================
 export async function initAuth() {
-  const { data: { session } } = await supabase.auth.getSession();
+  let session = null;
+  try {
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('getSession timeout')), 10000)
+    );
+    const { data } = await Promise.race([supabase.auth.getSession(), timeout]);
+    session = data?.session ?? null;
+  } catch (e) {
+    console.warn('initAuth: getSession failed or timed out, proceeding as logged out:', e.message);
+  }
   currentSession = session;
-  supabase.auth.onAuthStateChange((_event, session) => {
-    currentSession = session;
-    if (session) {
+  supabase.auth.onAuthStateChange((_event, newSession) => {
+    currentSession = newSession;
+    if (newSession) {
       subscribeToMessages();
     } else {
       unsubscribeFromMessages();

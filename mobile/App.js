@@ -14,19 +14,24 @@ export default function App() {
 
   useEffect(() => {
     async function init() {
-      const session = await api.initAuth();
-      if (session) {
-        setInitialRoute('Main');
-        api.subscribeToMessages();
+      try {
+        const session = await api.initAuth();
+        if (session) {
+          setInitialRoute('Main');
+          api.subscribeToMessages();
+        }
+      } catch (e) {
+        console.warn('initAuth failed, proceeding as logged out:', e.message);
+      } finally {
+        setReady(true);
+        setTimeout(() => {
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }).start(() => setShowSplash(false));
+        }, 2000);
       }
-      setReady(true);
-      setTimeout(() => {
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }).start(() => setShowSplash(false));
-      }, 2000);
     }
     init();
   }, []);
