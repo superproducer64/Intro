@@ -19,7 +19,13 @@ export async function initAuth() {
     const timeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('getSession timeout')), 10000)
     );
-    const { data } = await Promise.race([supabase.auth.getSession(), timeout]);
+    const { data } = await Promise.race([
+      (async () => {
+        await supabase.auth.initialize();
+        return supabase.auth.getSession();
+      })(),
+      timeout,
+    ]);
     session = data?.session ?? null;
   } catch (e) {
     console.warn('initAuth: getSession failed or timed out, proceeding as logged out:', e.message);

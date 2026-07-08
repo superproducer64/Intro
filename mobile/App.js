@@ -36,7 +36,7 @@ export default function App() {
     init();
   }, []);
 
-  if (!ready) return null;
+  if (!ready) return <View style={{ flex: 1, backgroundColor: COLORS.bg }} />;
 
   return (
     <View style={styles.container}>
