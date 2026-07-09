@@ -142,6 +142,14 @@ export async function appleSignIn(identityToken, name, email) {
   return { ...data, isNewUser: !profile?.birthdate };
 }
 
+export async function deleteAccount() {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+  const { error } = await supabase.rpc('delete_user');
+  if (error) throw new Error(error.message);
+  await logout();
+}
+
 // ==================== MATCHING ====================
 export async function getProfiles() {
   const user = getUser();
