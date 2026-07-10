@@ -103,18 +103,26 @@ export async function register({ name, email, password, age, bio, personalityTyp
   if (lookingFor) profileUpdates.looking_for = lookingFor;
   if (location) profileUpdates.location = location;
 
-  if (Object.keys(profileUpdates).length > 0) {
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update(profileUpdates)
-      .eq('id', data.user.id);
-    if (profileError) console.warn('Profile update after signup failed:', profileError.message);
+  try {
+    if (Object.keys(profileUpdates).length > 0) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(profileUpdates)
+        .eq('id', data.user.id);
+      if (profileError) console.warn('Profile update after signup failed:', profileError.message);
+    }
+  } catch (profileEx) {
+    console.warn('Profile update threw:', profileEx.message);
   }
 
-  if (interests && interests.length > 0) {
-    const interestRows = interests.map(interest => ({ user_id: data.user.id, interest }));
-    const { error: interestsError } = await supabase.from('interests').insert(interestRows);
-    if (interestsError) console.warn('Interests insert failed:', interestsError.message);
+  try {
+    if (interests && interests.length > 0) {
+      const interestRows = interests.map(interest => ({ user_id: data.user.id, interest }));
+      const { error: interestsError } = await supabase.from('interests').insert(interestRows);
+      if (interestsError) console.warn('Interests insert failed:', interestsError.message);
+    }
+  } catch (interestEx) {
+    console.warn('Interests insert threw:', interestEx.message);
   }
 
   return data;
