@@ -1,0 +1,236 @@
+IMPLEMENTATION PLAN — Photo Gallery (6 max, drag-reorder) + Video Upload (30s cap)
+====================================================================================
+Scope: client only. Backend (Supabase tables/buckets) already live:
+  - storage bucket: profile-photos
+  - storage bucket: profile-videos
+  - table: profile_photos (photo gallery, ordered)
+  - table: profiles.video_url (single video per profile)
+
+------------------------------------------------------------------------------------
+A) EVERY FILE THAT CHANGES
+------------------------------------------------------------------------------------
+
+1. package.json
+   - Add three new dependencies (see section D).
+
+2. src/services/api.js
+   - Add 7 new exported functions (see section B).
+   - Modify getProfiles(): stop reading photo_url, join profile_photos instead.
+   - Modify getProfile(): stop reading photo_url, join profile_photos + read profiles.video_url.
+   - Leave updateProfile() alone (photos/video are managed via their own functions,
+     not the generic profile update).
+
+3. src/screens/Profile/ProfileScreen.js
+   - Add a photo gallery section (grid or horizontal list of up to 6 photos) with:
+     - "Add photo" tile when < 6 photos (opens expo-image-picker → compress via
+       expo-image-manipulator → api.uploadPhoto)
+       - MODAL/PICKER:
+     - Per-photo delete button (api.deletePhoto)
+     - Drag-to-reorder across the 6 slots (react-native-draggable-flatlist) that
+       calls api.reorderPhotos on drag end
+     - Load photos via api.getProfilePhotos() in loadProfile() (or embed in
+       api.getProfile() response — see B/C notes)
+   - Add a video section:
+     - Shows current video (if any) with a play/preview control and a delete (X) button
+     - "Add video" button when no video present (opens expo-image-picker in video
+       mode with 30s duration limit → api.uploadVideo)
+     - Load video via api.getProfileVideo() (or embed in api.getProfile())
+   - New local state: `photos` (array), `video` (string|null), `uploadingPhoto`,
+     `uploadingVideo` booleans for spinners, `photoLoading` per-item optional.
+   - Wrap all new upload/delete/reorder calls in try/catch with Alert.alert on
+     failure, matching existing error-handling style in this file.
+
+4. src/screens/Discover/DiscoverScreen.js
+   - No new functions needed, but confirm it continues to work against
+     `profile.photos` (array) — already written as `profile.photos?.[0]`, so this
+     stays compatible as long as api.getProfiles() keeps returning `photos: [...]`
+     mapped from profile_photos instead of photo_url (see C).
+   - Optional/nice-to-have (not required by spec): swap Image source through the
+     full `photos` array with a swipeable/paged sub-view instead of just index 0.
+     Flag as optional — do not implement unless asked, since spec only requires the
+     gallery to exist on Profile, not a multi-photo swiper on Discover.
+
+5. src/screens/Matches/MatchesScreen.js
+   - No changes required for photos: this screen never reads photo_url or `photos`
+     today (see C) — it only shows a text-initial avatar. Leave as-is unless the
+     user separately asks to show the match's primary photo.
+
+------------------------------------------------------------------------------------
+B) NEW api.js FUNCTIONS
+------------------------------------------------------------------------------------
+
+All new functions require getUser(); throw 'Not signed in' if absent, consistent
+with existing functions in this file.
+
+1. uploadPhoto(fileUri, { contentType } = {})
+   - Preconditions: caller has already compressed/resized the image (via
+     expo-image-manipulator) before calling this — api.js should not do image
+     processing, keep it a thin storage+DB wrapper like the rest of the file.
+   - Steps:
+     a. Check current photo count via a SELECT count on profile_photos for
+        user.id; if >= 6, throw new Error('Maximum 6 photos').
+     b. Read file at fileUri as ArrayBuffer/Blob (expo FileSystem or fetch(uri))
+        and supabase.storage.from('profile-photos').upload(path, file, { contentType }).
+        Path convention: `${user.id}/${Date.now()}.jpg` (unique, user-scoped).
+     c. Get public URL: supabase.storage.from('profile-photos').getPublicUrl(path).
+     d. Determine next sort_order (max existing + 1, or count of existing rows).
+     e. Insert row into profile_photos: { user_id, photo_url: publicUrl, sort_order }.
+     f. Return the inserted row (or just the public URL) so the screen can push it
+        into local state without a full reload.
+
+2. deletePhoto(photoId)
+   - Look up the row (need storage path to remove the object, or store path
+     separately in the photo_url and re-derive path from it).
+   - supabase.storage.from('profile-photos').remove([path]) — best-effort, don't
+     block DB delete if storage removal fails (log/warn like the register() pattern
+     used elsewhere for non-critical writes).
+   - supabase.from('profile_photos').delete().eq('id', photoId).eq('user_id', user.id).
+   - Throw on DB delete error; warn-only on storage removal error.
+
+3. reorderPhotos(orderedPhotoIds)
+   - Input: array of photo IDs in the new desired order (as produced by
+     react-native-draggable-flatlist's onDragEnd).
+   - Implementation options:
+     a. Loop + individual updates: for each id, index pair, update sort_order.
+        Simple, matches this file's general style (no batch RPC exists), but is
+        N round trips.
+     b. Alternative: build rows and upsert with onConflict: 'id' in one call
+        (supabase.from('profile_photos').upsert(rows)) — prefer this if the table
+        schema allows upsert-by-id without clobbering other columns; otherwise use
+        (a). Recommend (a) for correctness/simplicity unless verified otherwise.
+   - Scope every update `.eq('user_id', user.id)` for safety even though id lookup
+     should already be scoped by RLS.
+
+4. getProfilePhotos(userId = null)
+   - If userId is null, use current user (self, for ProfileScreen).
+   - SELECT id, photo_url, sort_order FROM profile_photos WHERE user_id = :id
+     ORDER BY sort_order.
+   - Return array of { id, url, sort_order } (rename photo_url -> url for
+     screen convenience, or keep raw — match whatever field name Discover/Matches
+     already expect: they expect `photos: [...]` as plain URL strings per C below,
+     so return whichever shape the call site needs; likely getProfile()/getProfiles()
+     call this internally and map to plain URL strings, while ProfileScreen's own
+     edit UI wants the id+url structure to support delete/reorder by id).
+   - Given the dual need, simplest approach: getProfilePhotos() returns full rows
+     (id, url, sort_order) for edit UI use; getProfile()/getProfiles() do their own
+     lightweight select (or call getProfilePhotos and map .url) when assembling the
+     `photos: [...]` array for Discover/Matches/browsing use cases.
+
+5. uploadVideo(fileUri, { contentType } = {})
+   - Precondition: caller has already validated duration <= 30s (via
+     expo-image-picker's videoMaxDuration: 30 option at selection time — enforce at
+     picker level, not here).
+   - If profiles.video_url is already set, decide: overwrite (delete old object,
+     upload new, update column) since spec says "profiles.video_url" is singular —
+     one video per profile, so re-upload replaces.
+   - Steps:
+     a. supabase.storage.from('profile-videos').upload(`${user.id}/${Date.now()}.mp4`, file, { contentType }).
+     b. Get public URL.
+     c. supabase.from('profiles').update({ video_url: publicUrl }).eq('id', user.id).
+     d. Best-effort remove old storage object if one existed (warn-only on failure).
+     e. Return the new public URL.
+
+6. deleteVideo()
+   - Read current profiles.video_url for user.id (or accept it doesn't need a
+     lookup if the screen already holds the URL in state and passes it in — keep
+     signature deleteVideo() with no args and do the lookup internally to match
+     other functions' self-contained style).
+   - Derive storage path from the stored URL, remove from
+     supabase.storage.from('profile-videos') (warn-only on error).
+   - supabase.from('profiles').update({ video_url: null }).eq('id', user.id).
+   - Throw on the profiles update error.
+
+7. getProfileVideo(userId = null)
+   - If userId is null, use current user.
+   - SELECT video_url FROM profiles WHERE id = :id single().
+   - Return data.video_url ?? null.
+   - Note: getProfile() already selects from `profiles` in one query — cheaper to
+     just add `video_url` to that existing .select() column list (api.js:311) than
+     to add a second round trip via this function. Keep getProfileVideo() as a
+     standalone export for symmetry/other callers, but have getProfile() read the
+     column directly rather than calling this function internally.
+
+------------------------------------------------------------------------------------
+C) photo_url USAGE TODAY AND WHAT REPLACES IT
+------------------------------------------------------------------------------------
+
+Current state (grep confirmed only api.js and supabase.js reference photo_url;
+Discover/Matches never reference the raw column name):
+
+1. api.js:181 — getProfiles() selects `photo_url` directly on `profiles` table in
+   the main query, then api.js:194 maps it: `photos: row.photo_url ? [row.photo_url] : []`.
+   REPLACE: drop `photo_url` from the .select() string; instead either
+     (a) add a nested select `profile_photos(photo_url, sort_order)` to the same
+         query (mirrors how `prompts(...)` is already joined at api.js:181/183)
+         and order by sort_order, then map `photos: (row.profile_photos ?? [])
+         .sort(...).map(p => p.photo_url)`, or
+     (b) issue a second batched query.
+   Prefer (a) — it's one round trip and follows the existing `prompts` join pattern
+   exactly, so it's the more consistent change.
+
+2. api.js:311 — getProfile() selects `photo_url` on `profiles`, mapped at
+   api.js:321 the same way (`photos: data.photo_url ? [data.photo_url] : []`).
+   REPLACE: same join-based approach as (1a): add `profile_photos(photo_url,
+   sort_order)` to the select, plus add `video_url` as a plain column (see B.7),
+   then map `photos: (data.profile_photos ?? []).sort(...).map(p => p.photo_url)`
+   and `video: data.video_url ?? null`.
+
+3. DiscoverScreen.js:99-101 — reads `profile.photos?.[0]` only (single cover
+   photo shown in the feed card). This already consumes the `photos` array
+   produced by getProfiles(), NOT photo_url directly. No code change required here
+   — it will automatically pick up the new gallery's first photo (by sort_order)
+   once (1) is implemented, since index [0] of the new array is whatever is
+   sort_order 0.
+
+4. MatchesScreen.js — does not reference photo_url or `photos` at all today (only
+   shows a text-initial avatar circle at MatchesScreen.js:33-35). No change
+   required unless separately asked to add photo thumbnails to match rows.
+
+Net effect: the `profiles.photo_url` column itself is being deprecated in favor of
+profile_photos rows; no screen touches the raw column name directly, so the only
+required code changes for "what replaces it" are confined to api.js's two read
+functions (getProfiles, getProfile) plus the new write functions in B.
+
+------------------------------------------------------------------------------------
+D) MISSING PACKAGES
+------------------------------------------------------------------------------------
+
+Checked package.json — none of the following are currently installed:
+
+1. expo-image-picker — REQUIRED. Used for photo selection (gallery/camera) and
+   video selection with videoMaxDuration option for the 30s cap.
+   Install: npx expo install expo-image-picker
+
+2. expo-image-manipulator — REQUIRED. Used to compress/resize photos before
+   upload (per spec: "compress+upload").
+   Install: npx expo install expo-image-manipulator
+
+3. react-native-draggable-flatlist — REQUIRED for drag-reorder of the 6-photo
+   grid. Depends on react-native-gesture-handler and react-native-reanimated,
+   both of which ARE already present (gesture-handler ~2.31.1, reanimated 4.3.1),
+   so no additional transitive installs needed beyond this package itself.
+   Install: npm install react-native-draggable-flatlist
+   Note: verify version compatibility with reanimated 4.x / RN 0.85.3 before
+   installing — draggable-flatlist has had breaking changes across reanimated
+   major versions; check its README/CHANGELOG against reanimated v4 support.
+
+No other packages needed — file reading for upload (fetch(uri).then(r =>
+r.arrayBuffer()) or expo's built-in fetch/blob support) does not require
+expo-file-system unless a different upload approach is chosen; call this out to
+the user as an implementation detail to confirm during actual coding (may need
+expo-file-system added as a 4th package depending on which upload method is used
+for turning a local file URI into a body/Blob for supabase.storage.upload).
+
+------------------------------------------------------------------------------------
+SUGGESTED BUILD ORDER
+------------------------------------------------------------------------------------
+1. Install packages (D).
+2. api.js: add profile_photos/video_url joins to getProfiles/getProfile (C1, C2).
+3. api.js: add uploadPhoto, deletePhoto, reorderPhotos, getProfilePhotos (B1-B4).
+4. api.js: add uploadVideo, deleteVideo, getProfileVideo (B5-B7).
+5. ProfileScreen.js: build photo gallery UI + wire to new api functions.
+6. ProfileScreen.js: build video section UI + wire to new api functions.
+7. Manual test: Discover/Matches still render correctly with the new photos array
+   shape (no code change expected there, but verify).
+8. Bump app build number per existing commit convention (see recent commits:
+   each shot bumps the build number).

@@ -1,5 +1,7 @@
 // src/services/api.js
 import Constants from 'expo-constants';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
 
 const _apiBase =
@@ -178,25 +180,30 @@ export async function getProfiles() {
 
   let query = supabase
     .from('profiles')
-    .select('id, name, birthdate, bio, photo_url, personality_type, looking_for, location, prompts(prompt_question, answer, sort_order)')
+    .select('id, name, birthdate, bio, personality_type, looking_for, location, prompts(prompt_question, answer, sort_order), profile_photos(id, photo_url, sort_order)')
     .neq('id', user.id)
-    .order('sort_order', { foreignTable: 'prompts' });
+    .order('sort_order', { foreignTable: 'prompts' })
+    .order('sort_order', { foreignTable: 'profile_photos' });
   if (swipedIds.length) query = query.not('id', 'in', `(${swipedIds.join(',')})`);
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  return (data || []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    age: birthdateToAge(row.birthdate),
-    bio: row.bio ?? '',
-    photos: row.photo_url ? [row.photo_url] : [],
-    prompts: (row.prompts ?? []).map((p) => ({ prompt_question: p.prompt_question, prompt_answer: p.answer })),
-    personality_type: row.personality_type ?? null,
-    looking_for: row.looking_for ?? null,
-    location: row.location ?? null,
-  }));
+  return (data || []).map((row) => {
+    const sortedPhotos = (row.profile_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+    return {
+      id: row.id,
+      name: row.name,
+      age: birthdateToAge(row.birthdate),
+      bio: row.bio ?? '',
+      photos: sortedPhotos.map((p) => p.photo_url),
+      photo_url: sortedPhotos[0]?.photo_url ?? null,
+      prompts: (row.prompts ?? []).map((p) => ({ prompt_question: p.prompt_question, prompt_answer: p.answer })),
+      personality_type: row.personality_type ?? null,
+      looking_for: row.looking_for ?? null,
+      location: row.location ?? null,
+    };
+  });
 }
 
 export async function likeUser(likedUserId) {
@@ -308,17 +315,21 @@ export async function getProfile() {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, birthdate, bio, personality_type, looking_for, location, photo_url, prompts(prompt_question, answer, sort_order)')
+    .select('id, name, birthdate, bio, personality_type, looking_for, location, video_url, prompts(prompt_question, answer, sort_order), profile_photos(id, photo_url, sort_order)')
     .eq('id', user.id)
     .single();
   if (error) throw new Error(error.message);
+
+  const sortedPhotos = (data.profile_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
 
   return {
     id: data.id,
     name: data.name,
     age: birthdateToAge(data.birthdate),
     bio: data.bio ?? '',
-    photos: data.photo_url ? [data.photo_url] : [],
+    photos: sortedPhotos.map((p) => p.photo_url),
+    photo_url: sortedPhotos[0]?.photo_url ?? null,
+    video_url: data.video_url ?? null,
     personality_type: data.personality_type ?? null,
     looking_for: data.looking_for ?? null,
     location: data.location ?? null,
@@ -431,5 +442,153 @@ export async function savePrompts(prompts) {
   const { error } = await supabase
     .from('prompts')
     .upsert(rows, { onConflict: 'user_id,prompt_question' });
+  if (error) throw new Error(error.message);
+}
+
+// ==================== PHOTOS & VIDEO ====================
+export const MAX_PHOTOS = 6;                  // easy to change
+export const VIDEO_MAX_DURATION_SEC = 30;     // easy to change
+
+function storagePathFromPublicUrl(bucket, url) {
+  if (!url) return null;
+  const marker = `/object/public/${bucket}/`;
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  return url.slice(idx + marker.length);
+}
+
+export function photoStoragePath(photoUrl) {
+  return storagePathFromPublicUrl('profile-photos', photoUrl);
+}
+
+export function videoStoragePath(videoUrl) {
+  return storagePathFromPublicUrl('profile-videos', videoUrl);
+}
+
+export async function getProfilePhotos(userId) {
+  const targetId = userId || getUser()?.id;
+  if (!targetId) throw new Error('Not signed in');
+
+  const { data, error } = await supabase
+    .from('profile_photos')
+    .select('*')
+    .eq('user_id', targetId)
+    .order('sort_order', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function uploadPhoto(userId, localUri) {
+  if (!userId) throw new Error('Not signed in');
+
+  const { count, error: countError } = await supabase
+    .from('profile_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (countError) throw new Error(countError.message);
+  if ((count ?? 0) >= MAX_PHOTOS) throw new Error(`You can only have up to ${MAX_PHOTOS} photos`);
+
+  const manipulated = await ImageManipulator.manipulateAsync(
+    localUri,
+    [{ resize: { width: 1200 } }],
+    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+  );
+
+  const response = await fetch(manipulated.uri);
+  const arraybuffer = await response.arrayBuffer();
+
+  const path = `${userId}/${Crypto.randomUUID()}.jpg`;
+  const { error: uploadError } = await supabase.storage
+    .from('profile-photos')
+    .upload(path, arraybuffer, { contentType: 'image/jpeg' });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data: publicUrlData } = supabase.storage.from('profile-photos').getPublicUrl(path);
+
+  const { data: existing, error: maxError } = await supabase
+    .from('profile_photos')
+    .select('sort_order')
+    .eq('user_id', userId)
+    .order('sort_order', { ascending: false })
+    .limit(1);
+  if (maxError) throw new Error(maxError.message);
+  const nextSortOrder = existing?.length ? existing[0].sort_order + 1 : 0;
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('profile_photos')
+    .insert({ user_id: userId, photo_url: publicUrlData.publicUrl, sort_order: nextSortOrder })
+    .select()
+    .single();
+  if (insertError) throw new Error(insertError.message);
+
+  return inserted;
+}
+
+export async function deletePhoto(photoId, storagePath) {
+  if (storagePath) {
+    const { error: storageError } = await supabase.storage.from('profile-photos').remove([storagePath]);
+    if (storageError) console.warn('Photo storage delete failed:', storageError.message);
+  }
+
+  const { error } = await supabase.from('profile_photos').delete().eq('id', photoId);
+  if (error) console.warn('Photo row delete failed:', error.message);
+}
+
+export async function reorderPhotos(updates) {
+  // updates: Array<{ id: uuid, sort_order: number }>
+  const { error } = await supabase
+    .from('profile_photos')
+    .upsert(updates, { onConflict: 'id' });
+  if (error) throw new Error(error.message);
+}
+
+export async function uploadVideo(userId, localUri, durationSeconds) {
+  if (!userId) throw new Error('Not signed in');
+  if (durationSeconds > VIDEO_MAX_DURATION_SEC) {
+    throw new Error(`Video must be ${VIDEO_MAX_DURATION_SEC} seconds or shorter`);
+  }
+
+  const { data: profileRow, error: profileError } = await supabase
+    .from('profiles')
+    .select('video_url')
+    .eq('id', userId)
+    .single();
+  if (profileError) throw new Error(profileError.message);
+
+  const response = await fetch(localUri);
+  const arraybuffer = await response.arrayBuffer();
+
+  const path = `${userId}/${Crypto.randomUUID()}.mp4`;
+  const { error: uploadError } = await supabase.storage
+    .from('profile-videos')
+    .upload(path, arraybuffer, { contentType: 'video/mp4' });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data: publicUrlData } = supabase.storage.from('profile-videos').getPublicUrl(path);
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ video_url: publicUrlData.publicUrl })
+    .eq('id', userId);
+  if (updateError) throw new Error(updateError.message);
+
+  const oldPath = videoStoragePath(profileRow?.video_url);
+  if (oldPath) {
+    const { error: removeError } = await supabase.storage.from('profile-videos').remove([oldPath]);
+    if (removeError) console.warn('Old video storage delete failed:', removeError.message);
+  }
+
+  return publicUrlData.publicUrl;
+}
+
+export async function deleteVideo(userId, storagePath) {
+  if (!userId) throw new Error('Not signed in');
+
+  if (storagePath) {
+    const { error: storageError } = await supabase.storage.from('profile-videos').remove([storagePath]);
+    if (storageError) console.warn('Video storage delete failed:', storageError.message);
+  }
+
+  const { error } = await supabase.from('profiles').update({ video_url: null }).eq('id', userId);
   if (error) throw new Error(error.message);
 }

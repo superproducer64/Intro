@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { COLORS } from './src/constants/theme';
@@ -39,7 +40,7 @@ export default function App() {
   if (!ready) return <View style={{ flex: 1, backgroundColor: COLORS.bg }} />;
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       <StatusBar style="light" />
       <NavigationContainer theme={{
         dark: true,
@@ -59,7 +60,7 @@ export default function App() {
           <Text style={styles.splashTagline}>Dating for Introverts</Text>
         </Animated.View>
       )}
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
