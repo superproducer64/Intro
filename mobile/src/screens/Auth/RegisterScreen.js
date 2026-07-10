@@ -80,6 +80,7 @@ export default function RegisterScreen({ navigation }) {
         bio,
         personalityType: personality,
         lookingFor,
+        interests,
         location,
       });
     } catch (e) {

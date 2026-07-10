@@ -83,7 +83,7 @@ async function request(path, options = {}) {
 }
 
 // ==================== AUTH ====================
-export async function register({ name, email, password, age, bio, personalityType, lookingFor, location }) {
+export async function register({ name, email, password, age, bio, personalityType, lookingFor, interests, location }) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -109,6 +109,12 @@ export async function register({ name, email, password, age, bio, personalityTyp
       .update(profileUpdates)
       .eq('id', data.user.id);
     if (profileError) console.warn('Profile update after signup failed:', profileError.message);
+  }
+
+  if (interests && interests.length > 0) {
+    const interestRows = interests.map(interest => ({ user_id: data.user.id, interest }));
+    const { error: interestsError } = await supabase.from('interests').insert(interestRows);
+    if (interestsError) console.warn('Interests insert failed:', interestsError.message);
   }
 
   return data;
