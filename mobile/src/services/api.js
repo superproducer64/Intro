@@ -418,3 +418,18 @@ export function addMessageListener(fn) {
   messageListeners.push(fn);
   return () => { messageListeners = messageListeners.filter(l => l !== fn); };
 }
+
+export async function savePrompts(prompts) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+  const rows = prompts.map((p, index) => ({
+    user_id: user.id,
+    prompt_question: p.question,
+    answer: p.answer,
+    sort_order: index,
+  }));
+  const { error } = await supabase
+    .from('prompts')
+    .upsert(rows, { onConflict: 'user_id,prompt_question' });
+  if (error) throw new Error(error.message);
+}
