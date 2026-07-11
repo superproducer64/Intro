@@ -60,7 +60,7 @@ export default function LoginScreen({ navigation }) {
       // Send the identity token for server-side verification (not just the opaque user ID)
       const data = await api.appleSignIn(credential.identityToken, fullName, credential.email);
       if (data.isNewUser) {
-        navigation.replace('ProfileSetup');
+        navigation.replace('ProfileSetup', { prefillName: fullName });
       } else {
         navigation.replace('Main');
       }

@@ -337,7 +337,7 @@ export async function getProfile() {
   };
 }
 
-export async function updateProfile({ name, age, bio, location } = {}) {
+export async function updateProfile({ name, age, bio, location, personalityType, lookingFor } = {}) {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
 
@@ -346,6 +346,8 @@ export async function updateProfile({ name, age, bio, location } = {}) {
   if (age !== undefined && age !== null) updates.birthdate = ageToBirthdate(age);
   if (bio !== undefined) updates.bio = bio;
   if (location !== undefined) updates.location = location;
+  if (personalityType !== undefined) updates.personality_type = personalityType;
+  if (lookingFor !== undefined) updates.looking_for = lookingFor;
 
   const { error } = await supabase
     .from('profiles')
