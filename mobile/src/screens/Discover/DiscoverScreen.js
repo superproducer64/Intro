@@ -1,14 +1,47 @@
 // src/screens/Discover/DiscoverScreen.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, Image, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, Pressable, Image, Alert, Animated, Easing, Dimensions } from 'react-native';
 import * as api from '../../services/api';
 import ReportBlockModal from '../../components/ReportBlockModal';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_EXIT_DURATION = 260;
 
 const DiscoverScreen = () => {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reportTarget, setReportTarget] = useState(null);
+  const cardAnims = useRef({}).current;
+
+  const getCardAnim = (id) => {
+    if (!cardAnims[id]) {
+      cardAnims[id] = { translateX: new Animated.Value(0), opacity: new Animated.Value(1) };
+    }
+    return cardAnims[id];
+  };
+
+  const animateCardExit = (id, direction, onDone) => {
+    const { translateX, opacity } = getCardAnim(id);
+    const toValue = direction === 'right' ? SCREEN_WIDTH * 1.2 : -SCREEN_WIDTH * 1.2;
+    Animated.parallel([
+      Animated.timing(translateX, {
+        toValue,
+        duration: CARD_EXIT_DURATION,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: CARD_EXIT_DURATION,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      delete cardAnims[id];
+      if (finished) onDone();
+    });
+  };
 
   const loadProfiles = async () => {
     try {
@@ -27,6 +60,9 @@ const DiscoverScreen = () => {
   }, []);
 
   const handleLike = async (userId) => {
+    animateCardExit(userId, 'right', () => {
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    });
     try {
       const result = await api.likeUser(userId);
       if (result.match) {
@@ -41,12 +77,13 @@ const DiscoverScreen = () => {
   };
 
   const handlePass = async (userId) => {
+    animateCardExit(userId, 'left', () => {
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
+    });
     try {
       await api.passUser(userId);
     } catch (error) {
       Alert.alert('Error', 'Failed to pass');
-    } finally {
-      setProfiles((prev) => prev.filter((p) => p.id !== userId));
     }
   };
 
@@ -63,8 +100,10 @@ const DiscoverScreen = () => {
         Thoughtful matches for deep connections
       </Text>
 
-      {profiles.map((profile) => (
-        <View key={profile.id} style={{
+      {profiles.map((profile) => {
+        const { translateX, opacity } = getCardAnim(profile.id);
+        return (
+        <Animated.View key={profile.id} style={{
           backgroundColor: COLORS.bgCard,
           borderRadius: BORDER_RADIUS.xl,
           padding: SPACING.xl,
@@ -76,6 +115,8 @@ const DiscoverScreen = () => {
           shadowOpacity: 0.1,
           shadowRadius: 14,
           elevation: 3,
+          transform: [{ translateX }],
+          opacity,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', flex: 1 }}>
@@ -115,8 +156,9 @@ const DiscoverScreen = () => {
           >
             <Text style={{ color: COLORS.textMuted, fontSize: 14, fontWeight: '500' }}>Pass</Text>
           </Pressable>
-        </View>
-      ))}
+        </Animated.View>
+        );
+      })}
 
       {profiles.length === 0 && !loading && (
         <Text style={{ textAlign: 'center', marginTop: 50, color: COLORS.textMuted }}>
