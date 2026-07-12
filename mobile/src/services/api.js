@@ -297,6 +297,27 @@ export async function getCafeParticipants(roomId) {
   });
 }
 
+// Looks up a single participant row by its own id (e.g. from a realtime INSERT
+// payload) so the caller can append it locally instead of refetching the whole list.
+export async function getCafeParticipant(participantId) {
+  const { data, error } = await supabase
+    .from('cafe_participants')
+    .select('id, user_id, joined_at, profile:profiles(id, name, profile_photos(photo_url, sort_order))')
+    .eq('id', participantId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const sortedPhotos = (data.profile?.profile_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+  return {
+    id: data.id,
+    userId: data.user_id,
+    joinedAt: data.joined_at,
+    name: data.profile?.name || 'Someone',
+    photoUrl: sortedPhotos[0]?.photo_url ?? null,
+  };
+}
+
 export async function joinCafeRoom(roomId) {
   const user = getUser();
   if (!user) throw new Error('Not signed in');

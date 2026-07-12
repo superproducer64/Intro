@@ -47,8 +47,20 @@ export default function CafeRoomScreen({ route, navigation }) {
         setMessages(messageData);
 
         api.subscribeToCafeRoom(roomId, {
-          onJoin: refreshParticipants,
-          onLeave: refreshParticipants,
+          onJoin: async (row) => {
+            // We already have ourselves from the initial load above.
+            if (row.user_id === currentUser?.id) return;
+            try {
+              const participant = await api.getCafeParticipant(row.id);
+              if (!participant) return;
+              setParticipants((prev) => (prev.find((p) => p.id === participant.id) ? prev : [...prev, participant]));
+            } catch (e) {
+              console.error('Load joined participant error:', e);
+            }
+          },
+          onLeave: (row) => {
+            setParticipants((prev) => prev.filter((p) => p.id !== row.id));
+          },
           onMessage: (row) => {
             setMessages((prev) => {
               if (prev.find((m) => m.id === row.id)) return prev;
