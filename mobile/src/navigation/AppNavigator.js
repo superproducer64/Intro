@@ -11,6 +11,7 @@ import DiscoverScreen from '../screens/Discover/DiscoverScreen';
 import MatchesScreen from '../screens/Matches/MatchesScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
 import ExperiencesScreen from '../screens/Experiences/ExperiencesScreen';
+import CafeRoomScreen from '../screens/Experiences/CafeRoomScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import PrivacyPolicyScreen from '../screens/Legal/PrivacyPolicyScreen';
@@ -22,7 +23,7 @@ const AuthStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabIcon({ label, focused }) {
-  const icons = { Discover: '🔍', Matches: '💜', Profile: '👤' };
+  const icons = { Discover: '🔍', Matches: '💜', Experiences: '☕', Profile: '👤' };
   return (
     <View style={styles.tabItem}>
       <Text style={styles.tabIcon}>{icons[label]}</Text>
@@ -43,7 +44,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen name="Matches" component={MatchesScreen} />
-      {/* Experiences (café/movie/game rooms) hidden — still on the Express backend, not yet migrated to Supabase */}
+      <Tab.Screen name="Experiences" component={ExperiencesScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -61,6 +62,7 @@ function AuthenticatedStack() {
       <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
         <AuthStack.Screen name="Main" component={MainTabs} />
         <AuthStack.Screen name="Chat" component={ChatScreen} />
+        <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
         <AuthStack.Screen name="Settings" component={SettingsScreen} />
         <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
         <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />

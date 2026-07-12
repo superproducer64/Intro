@@ -1,14 +1,7 @@
 // src/services/api.js
-import Constants from 'expo-constants';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { supabase } from './supabase';
-
-const _apiBase =
-  Constants?.expoConfig?.extra?.apiUrl ||
-  'https://intro-bgpstudioshou.replit.app';
-
-const API_URL = _apiBase;
 
 let currentSession = null;
 let messageListeners = [];
@@ -60,28 +53,6 @@ function birthdateToAge(birthdate) {
   const monthDiff = today.getMonth() - birth.getMonth();
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
   return age;
-}
-
-async function request(path, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (currentSession?.access_token) headers['Authorization'] = `Bearer ${currentSession.access_token}`;
-
-  const url = `${API_URL}${path}`;
-  console.log(`API Request: ${options.method || 'GET'} ${url}`);
-
-  const res = await fetch(url, { ...options, headers });
-  const text = await res.text();
-
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    console.error('API returned non-JSON:', text.substring(0, 200));
-    throw new Error('Server returned an invalid response. Please try again.');
-  }
-
-  if (!res.ok) throw new Error(data.error || 'Request failed');
-  return data;
 }
 
 // ==================== AUTH ====================
@@ -269,22 +240,141 @@ export async function getMatches() {
 }
 
 // ==================== CAFÉ ====================
-export async function getCafeRooms() {
-  return request('/api/cafe/rooms');
+let cafeChannel = null;
+
+// Single persistent room model: fetch the first active café room, or create it
+// if this is the very first person to ever open the café.
+export async function getOrCreateCafeRoom() {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('cafe_rooms')
+    .select('id, title, host_id, max_participants, is_active, created_at')
+    .eq('type', 'cafe')
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (fetchError) throw new Error(fetchError.message);
+  if (existing) return existing;
+
+  const { data: created, error: createError } = await supabase
+    .from('cafe_rooms')
+    .insert({ host_id: user.id, title: 'The Café', type: 'cafe' })
+    .select('id, title, host_id, max_participants, is_active, created_at')
+    .single();
+  if (createError) throw new Error(createError.message);
+  return created;
 }
 
-export async function createCafeRoom(data) {
-  return request('/api/cafe/rooms', {
-    method: 'POST',
-    body: JSON.stringify(data),
+export async function getCafeParticipantCount(roomId) {
+  const { count, error } = await supabase
+    .from('cafe_participants')
+    .select('id', { count: 'exact', head: true })
+    .eq('room_id', roomId);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function getCafeParticipants(roomId) {
+  const { data, error } = await supabase
+    .from('cafe_participants')
+    .select('id, user_id, joined_at, profile:profiles(id, name, profile_photos(photo_url, sort_order))')
+    .eq('room_id', roomId)
+    .order('joined_at', { ascending: true });
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((row) => {
+    const sortedPhotos = (row.profile?.profile_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+    return {
+      id: row.id,
+      userId: row.user_id,
+      joinedAt: row.joined_at,
+      name: row.profile?.name || 'Someone',
+      photoUrl: sortedPhotos[0]?.photo_url ?? null,
+    };
   });
 }
 
-export async function createHyperbeamSession(url) {
-  return request('/api/cafe/hyperbeam/create', {
-    method: 'POST',
-    body: JSON.stringify({ url }),
-  });
+export async function joinCafeRoom(roomId) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+  const { error } = await supabase
+    .from('cafe_participants')
+    .upsert({ room_id: roomId, user_id: user.id }, { onConflict: 'room_id,user_id', ignoreDuplicates: true });
+  if (error) throw new Error(error.message);
+}
+
+export async function leaveCafeRoom(roomId) {
+  const user = getUser();
+  if (!user) return;
+  const { error } = await supabase
+    .from('cafe_participants')
+    .delete()
+    .eq('room_id', roomId)
+    .eq('user_id', user.id);
+  if (error) console.warn('Leave cafe room failed:', error.message);
+}
+
+export async function getCafeMessages(roomId) {
+  const { data, error } = await supabase
+    .from('cafe_messages')
+    .select('id, user_id, content, created_at')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    content: row.content,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function sendCafeMessage(roomId, content) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+  const { data, error } = await supabase
+    .from('cafe_messages')
+    .insert({ room_id: roomId, user_id: user.id, content })
+    .select('id, user_id, content, created_at')
+    .single();
+  if (error) throw new Error(error.message);
+
+  return { id: data.id, userId: data.user_id, content: data.content, createdAt: data.created_at };
+}
+
+// Subscribes to live join/leave and new-message events for a single café room.
+export function subscribeToCafeRoom(roomId, { onJoin, onLeave, onMessage } = {}) {
+  unsubscribeFromCafeRoom();
+  cafeChannel = supabase
+    .channel(`cafe_room:${roomId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'cafe_participants', filter: `room_id=eq.${roomId}` },
+      (payload) => onJoin?.(payload.new)
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'cafe_participants', filter: `room_id=eq.${roomId}` },
+      (payload) => onLeave?.(payload.old)
+    )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'cafe_messages', filter: `room_id=eq.${roomId}` },
+      (payload) => onMessage?.(payload.new)
+    )
+    .subscribe();
+  return cafeChannel;
+}
+
+export function unsubscribeFromCafeRoom() {
+  if (cafeChannel) {
+    supabase.removeChannel(cafeChannel);
+    cafeChannel = null;
+  }
 }
 
 // ==================== SAFETY (report & block) ====================
