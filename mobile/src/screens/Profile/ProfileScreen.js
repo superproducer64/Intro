@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { NestableScrollContainer, NestableDraggableFlatList } from 'react-native-draggable-flatlist';
 import { COLORS, SPACING, BORDER_RADIUS, PROMPTS } from '../../constants/theme';
 import * as api from '../../services/api';
+import VideoPreviewModal from '../../components/VideoPreviewModal';
 
 const GRID_GAP = SPACING.sm;
 const GRID_PADDING = SPACING.lg;
@@ -23,6 +24,7 @@ export default function ProfileScreen({ navigation }) {
   const [video, setVideo] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [previewingVideo, setPreviewingVideo] = useState(false);
 
   const loadProfile = async () => {
     try {
@@ -131,10 +133,15 @@ export default function ProfileScreen({ navigation }) {
         return;
       }
 
+      setUploadingVideo(true);
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'videos',
         videoMaxDuration: api.VIDEO_MAX_DURATION_SEC,
         quality: 1,
+        // Videos kept in iCloud (e.g. "Optimize iPhone Storage") aren't fully
+        // downloaded on-device. Without this, the picker fails immediately with
+        // PHPhotosErrorDomain error 3164 instead of fetching the asset first.
+        shouldDownloadFromNetwork: true,
       });
       if (result.canceled || !result.assets?.length) return;
 
@@ -145,11 +152,14 @@ export default function ProfileScreen({ navigation }) {
         return;
       }
 
-      setUploadingVideo(true);
       const newVideoUrl = await api.uploadVideo(user.id, asset.uri, durationSeconds);
       setVideo(newVideoUrl);
     } catch (e) {
-      Alert.alert('Upload failed', e.message);
+      if (e.message?.includes('PHPhotosErrorDomain')) {
+        Alert.alert('Upload failed', 'This video needs to download from iCloud first. Please check your connection and try again.');
+      } else {
+        Alert.alert('Upload failed', e.message);
+      }
     } finally {
       setUploadingVideo(false);
     }
@@ -194,6 +204,7 @@ export default function ProfileScreen({ navigation }) {
   }
 
   return (
+    <>
     <NestableScrollContainer style={styles.container} contentContainerStyle={styles.scroll}>
       <View style={styles.headerRow}>
         <Text style={styles.header}>Profile</Text>
@@ -297,12 +308,14 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Video</Text>
 
         {video ? (
-          <TouchableOpacity style={styles.videoCard} onPress={handleAddVideo} onLongPress={handleDeleteVideo}>
-            <Image source={{ uri: video }} style={styles.videoThumb} />
+          <TouchableOpacity style={styles.videoCard} onPress={() => setPreviewingVideo(true)} onLongPress={handleDeleteVideo}>
+            <Image key={video} source={{ uri: video }} style={styles.videoThumb} />
             <View style={styles.videoPlayOverlay}>
               <Text style={styles.videoPlayIcon}>▶</Text>
             </View>
-            <Text style={styles.videoReplaceLabel}>Replace</Text>
+            <TouchableOpacity style={styles.videoReplaceBtn} onPress={handleAddVideo}>
+              <Text style={styles.videoReplaceLabel}>Replace</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.addVideoBtn} onPress={handleAddVideo} disabled={uploadingVideo}>
@@ -315,6 +328,13 @@ export default function ProfileScreen({ navigation }) {
         )}
       </View>
     </NestableScrollContainer>
+
+    <VideoPreviewModal
+      visible={previewingVideo}
+      uri={video}
+      onClose={() => setPreviewingVideo(false)}
+    />
+    </>
   );
 }
 
@@ -365,7 +385,8 @@ const styles = StyleSheet.create({
   videoThumb: { width: '100%', height: '100%', position: 'absolute' },
   videoPlayOverlay: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   videoPlayIcon: { fontSize: 20, color: COLORS.text },
-  videoReplaceLabel: { position: 'absolute', bottom: SPACING.xs, right: SPACING.xs, backgroundColor: 'rgba(0,0,0,0.6)', color: COLORS.text, fontSize: 11, paddingHorizontal: SPACING.xs, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm, overflow: 'hidden' },
+  videoReplaceBtn: { position: 'absolute', bottom: SPACING.xs, right: SPACING.xs, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: SPACING.xs, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm },
+  videoReplaceLabel: { color: COLORS.text, fontSize: 11 },
   addVideoBtn: { width: PHOTO_SIZE * 2, height: PHOTO_SIZE * 2, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.bgLight },
   addVideoText: { color: COLORS.primary, fontSize: 15, fontWeight: '600' },
 });
