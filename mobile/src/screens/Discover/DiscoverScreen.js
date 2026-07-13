@@ -21,25 +21,27 @@ const DiscoverScreen = () => {
     return cardAnims[id];
   };
 
-  const animateCardExit = (id, direction, onDone) => {
+  const animateCardExit = (id, direction) => {
     const { translateX, opacity } = getCardAnim(id);
     const toValue = direction === 'right' ? SCREEN_WIDTH * 1.2 : -SCREEN_WIDTH * 1.2;
-    Animated.parallel([
-      Animated.timing(translateX, {
-        toValue,
-        duration: CARD_EXIT_DURATION,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: CARD_EXIT_DURATION,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      delete cardAnims[id];
-      if (finished) onDone();
+    return new Promise((resolve) => {
+      Animated.parallel([
+        Animated.timing(translateX, {
+          toValue,
+          duration: CARD_EXIT_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: CARD_EXIT_DURATION,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        delete cardAnims[id];
+        resolve();
+      });
     });
   };
 
@@ -60,9 +62,7 @@ const DiscoverScreen = () => {
   }, []);
 
   const handleLike = async (userId) => {
-    animateCardExit(userId, 'right', () => {
-      setProfiles((prev) => prev.filter((p) => p.id !== userId));
-    });
+    const exitAnim = animateCardExit(userId, 'right');
     try {
       const result = await api.likeUser(userId);
       if (result.match) {
@@ -70,6 +70,8 @@ const DiscoverScreen = () => {
       } else {
         Alert.alert('Sent', 'Gentle connection sent');
       }
+      await exitAnim;
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
       loadProfiles(); // refresh
     } catch (error) {
       Alert.alert('Error', 'Failed to send connection');
@@ -77,13 +79,14 @@ const DiscoverScreen = () => {
   };
 
   const handlePass = async (userId) => {
-    animateCardExit(userId, 'left', () => {
-      setProfiles((prev) => prev.filter((p) => p.id !== userId));
-    });
+    const exitAnim = animateCardExit(userId, 'left');
     try {
       await api.passUser(userId);
     } catch (error) {
       Alert.alert('Error', 'Failed to pass');
+    } finally {
+      await exitAnim;
+      setProfiles((prev) => prev.filter((p) => p.id !== userId));
     }
   };
 
