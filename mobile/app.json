@@ -20,9 +20,11 @@
       "buildNumber": "16",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Intro needs camera access to take profile photos.",
+        "NSCameraUsageDescription": "Intro needs camera access to take profile photos and for video calls with your matches.",
+        "NSMicrophoneUsageDescription": "Intro needs microphone access for video calls with your matches.",
         "NSPhotoLibraryUsageDescription": "Intro needs photo library access to set your profile photo.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["voip"]
       }
     },
     "android": {
@@ -39,7 +41,15 @@
       "expo-asset",
       "expo-web-browser",
       "expo-status-bar",
-      "expo-video"
+      "expo-video",
+      [
+        "@daily-co/config-plugin-rn-daily-js",
+        {
+          "enableCamera": true,
+          "enableMicrophone": true,
+          "enableScreenShare": false
+        }
+      ]
     ],
     "owner": "superproducer64",
     "extra": {

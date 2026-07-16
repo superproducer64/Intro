@@ -10,6 +10,7 @@ import ProfileSetupScreen from '../screens/Profile/ProfileSetupScreen';
 import DiscoverScreen from '../screens/Discover/DiscoverScreen';
 import MatchesScreen from '../screens/Matches/MatchesScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
+import VideoCallScreen from '../screens/VideoCall/VideoCallScreen';
 import ExperiencesScreen from '../screens/Experiences/ExperiencesScreen';
 import CafeRoomScreen from '../screens/Experiences/CafeRoomScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
@@ -62,6 +63,7 @@ function AuthenticatedStack() {
       <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
         <AuthStack.Screen name="Main" component={MainTabs} />
         <AuthStack.Screen name="Chat" component={ChatScreen} />
+        <AuthStack.Screen name="VideoCall" component={VideoCallScreen} options={{ presentation: 'fullScreenModal' }} />
         <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
         <AuthStack.Screen name="Settings" component={SettingsScreen} />
         <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />

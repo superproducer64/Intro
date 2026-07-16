@@ -398,6 +398,61 @@ export function unsubscribeFromCafeRoom() {
   }
 }
 
+// ==================== VIDEO CALLS (Daily) ====================
+let videoCallChannel = null;
+
+export async function createVideoCall(matchId) {
+  const { data, error } = await supabase.functions.invoke('create-video-call', {
+    body: { match_id: matchId },
+  });
+  if (error) {
+    let detail = null;
+    if (error?.context && typeof error.context.text === 'function') {
+      try { detail = JSON.parse(await error.context.text()); } catch { /* non-JSON error body */ }
+    }
+    throw new Error(detail?.error || error.message);
+  }
+  return data.call;
+}
+
+export async function declineVideoCall(callId) {
+  const { error } = await supabase
+    .from('video_calls')
+    .update({ status: 'declined' })
+    .eq('id', callId);
+  if (error) throw new Error(error.message);
+}
+
+export async function endVideoCall(callId) {
+  const { error } = await supabase
+    .from('video_calls')
+    .update({ status: 'ended', ended_at: new Date().toISOString() })
+    .eq('id', callId);
+  if (error) throw new Error(error.message);
+}
+
+// v1: scoped to a single match, subscribed only while that match's chat screen is open
+// (no background/push-driven ringing yet — see Tier 4 handoff spec, Open Decisions #1).
+export function subscribeToVideoCalls(matchId, onChange) {
+  unsubscribeFromVideoCalls();
+  videoCallChannel = supabase
+    .channel(`video_calls:match:${matchId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'video_calls', filter: `match_id=eq.${matchId}` },
+      (payload) => onChange(payload)
+    )
+    .subscribe();
+  return videoCallChannel;
+}
+
+export function unsubscribeFromVideoCalls() {
+  if (videoCallChannel) {
+    supabase.removeChannel(videoCallChannel);
+    videoCallChannel = null;
+  }
+}
+
 // ==================== SAFETY (report & block) ====================
 export async function reportUser(reportedUserId, reason, details) {
   const user = getUser();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
 import ReportBlockModal from '../../components/ReportBlockModal';
@@ -30,6 +30,41 @@ export default function ChatScreen({ route, navigation }) {
     });
     return removeListener;
   }, [matchUserId]);
+
+  useEffect(() => {
+    if (!matchId) return;
+    api.subscribeToVideoCalls(matchId, (payload) => {
+      const call = payload.new;
+      if (!call) return;
+      if (call.status === 'pending' && call.initiated_by !== currentUser?.id) {
+        Alert.alert(
+          'Incoming video call',
+          `${matchName} is calling you`,
+          [
+            {
+              text: 'Decline',
+              style: 'cancel',
+              onPress: () => api.declineVideoCall(call.id).catch((e) => console.error('Decline call error:', e)),
+            },
+            {
+              text: 'Accept',
+              onPress: () => navigation.navigate('VideoCall', { callId: call.id, roomUrl: call.room_url, matchName }),
+            },
+          ]
+        );
+      }
+    });
+    return () => api.unsubscribeFromVideoCalls();
+  }, [matchId]);
+
+  const startVideoCall = async () => {
+    try {
+      const call = await api.createVideoCall(matchId);
+      navigation.navigate('VideoCall', { callId: call.id, roomUrl: call.room_url, matchName });
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
+  };
 
   const loadMessages = async () => {
     try {
@@ -71,9 +106,14 @@ export default function ChatScreen({ route, navigation }) {
           <Text style={styles.backBtn}>‹ Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{matchName}</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
-          <Text style={styles.moreBtn}>•••</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={startVideoCall} style={styles.videoCallBtn}>
+            <Text style={styles.videoCallIcon}>🎥</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setModalVisible(true)}>
+            <Text style={styles.moreBtn}>•••</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -120,6 +160,9 @@ const styles = StyleSheet.create({
   },
   backBtn: { fontSize: 18, color: COLORS.primary },
   headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.text },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  videoCallBtn: { padding: 2 },
+  videoCallIcon: { fontSize: 20 },
   moreBtn: { fontSize: 20, color: COLORS.textMuted },
   messageList: { padding: SPACING.md, flexGrow: 1 },
   messageBubble: { maxWidth: '75%', padding: SPACING.sm, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.sm },
