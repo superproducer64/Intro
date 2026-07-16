@@ -41,6 +41,7 @@ export default function VideoCallScreen({ route, navigation }) {
     };
 
     const handleError = (e) => {
+      console.error('Daily call error event:', JSON.stringify(e), e);
       setError(e?.errorMsg || 'Video call error');
     };
 
@@ -50,7 +51,12 @@ export default function VideoCallScreen({ route, navigation }) {
     call.on('participant-left', handleParticipantLeft);
     call.on('error', handleError);
 
-    call.join({ url: roomUrl }).catch((e) => setError(e?.message || 'Failed to join call'));
+    call.join({ url: roomUrl }).catch((e) => {
+      // Daily's rejected-join error objects use `errorMsg` + `error.type`, not `.message` —
+      // reading `.message` here was silently swallowing the real reason every time.
+      console.error('Daily join() rejected:', JSON.stringify(e), e);
+      setError(e?.errorMsg || e?.error?.type || e?.message || 'Failed to join call');
+    });
 
     return () => {
       call.off('joined-meeting', handleJoinedMeeting);
