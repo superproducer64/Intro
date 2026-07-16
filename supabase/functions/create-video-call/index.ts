@@ -78,6 +78,7 @@ Deno.serve(async (req: Request) => {
 
     // Create the actual Daily room server-side. The Daily API key never reaches the client.
     const roomName = `intro-${match_id}-${Date.now()}`;
+    const roomExp = Math.floor(Date.now() / 1000) + 60 * 60; // room expires 1 hour after creation
     const dailyResponse = await fetch("https://api.daily.co/v1/rooms", {
       method: "POST",
       headers: {
@@ -88,7 +89,7 @@ Deno.serve(async (req: Request) => {
         name: roomName,
         privacy: "private",
         properties: {
-          exp: Math.floor(Date.now() / 1000) + 60 * 60, // room expires 1 hour after creation
+          exp: roomExp,
           enable_chat: false,
           enable_screenshare: false,
           max_participants: 2,
@@ -106,14 +107,43 @@ Deno.serve(async (req: Request) => {
 
     const dailyRoom = await dailyResponse.json();
 
+    // Private rooms require a meeting token (or knocking) to actually join — a bare room_url
+    // is otherwise unjoinable. Scope the token to this room_name specifically: an unscoped
+    // token would grant access to every room in the account.
+    const tokenResponse = await fetch("https://api.daily.co/v1/meeting-tokens", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${dailyApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        properties: {
+          room_name: dailyRoom.name,
+          exp: roomExp,
+        },
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errText = await tokenResponse.text();
+      return new Response(
+        JSON.stringify({ error: "Failed to create meeting token", detail: errText }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const { token } = await tokenResponse.json();
+    const joinableRoomUrl = `${dailyRoom.url}?t=${token}`;
+
     // Record the call in our own table so both match participants can see/subscribe to it via Realtime.
+    // room_url is stored token-appended so either participant can join directly off this row.
     const { data: callRow, error: insertError } = await supabase
       .from("video_calls")
       .insert({
         match_id,
         initiated_by: user.id,
         room_name: dailyRoom.name,
-        room_url: dailyRoom.url,
+        room_url: joinableRoomUrl,
         status: "pending",
       })
       .select()
