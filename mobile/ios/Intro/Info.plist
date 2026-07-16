@@ -59,17 +59,21 @@
 		<string>_expo._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Intro needs camera access to take profile photos.</string>
+	<string>Intro needs camera access to take profile photos and for video calls with your matches.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Expo Dev Launcher uses the local network to discover and connect to development servers running on your computer.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your microphone</string>
+	<string>Intro needs microphone access for video calls with your matches.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Intro needs photo library access to set your profile photo.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>voip</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
