@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { NestableScrollContainer, NestableDraggableFlatList } from 'react-native-draggable-flatlist';
-import { COLORS, SPACING, BORDER_RADIUS, PROMPTS } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES, LOOKING_FOR } from '../../constants/theme';
 import * as api from '../../services/api';
 import VideoPreviewModal from '../../components/VideoPreviewModal';
 
@@ -12,6 +12,21 @@ const GRID_PADDING = SPACING.lg;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PHOTO_SIZE = (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP * 2) / 3;
 
+// Pre-fills up to 3 edit slots from the user's saved prompts, padding any
+// remaining slots with unused questions — same default behavior as the
+// initial onboarding step in ProfileSetupScreen.
+function buildEditPrompts(existingPrompts = []) {
+  const slots = existingPrompts
+    .slice(0, 3)
+    .map((p) => ({ question: p.prompt_question, answer: p.prompt_answer || '' }));
+  const used = slots.map((s) => s.question);
+  const available = PROMPTS.filter((p) => !used.includes(p));
+  while (slots.length < 3 && available.length > 0) {
+    slots.push({ question: available.shift(), answer: '' });
+  }
+  return slots;
+}
+
 export default function ProfileScreen({ navigation }) {
   const [profile, setProfile] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -19,11 +34,15 @@ export default function ProfileScreen({ navigation }) {
   const [age, setAge] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
+  const [personalityType, setPersonalityType] = useState('');
+  const [lookingFor, setLookingFor] = useState('');
+  const [editPrompts, setEditPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [photos, setPhotos] = useState([]);
   const [video, setVideo] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(null);
   const [previewingVideo, setPreviewingVideo] = useState(false);
 
   const loadProfile = async () => {
@@ -34,6 +53,9 @@ export default function ProfileScreen({ navigation }) {
       setAge(data.age?.toString() || '');
       setBio(data.bio || '');
       setLocation(data.location || '');
+      setPersonalityType(data.personality_type || '');
+      setLookingFor(data.looking_for || '');
+      setEditPrompts(buildEditPrompts(data.prompts));
       setVideo(data.video_url || null);
 
       const user = api.getUser();
@@ -51,14 +73,62 @@ export default function ProfileScreen({ navigation }) {
   useFocusEffect(useCallback(() => { loadProfile(); }, []));
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter your name');
+      return;
+    }
+    if (!age) {
+      Alert.alert('Error', 'Please enter your age');
+      return;
+    }
+    const ageNum = parseInt(age, 10);
+    if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
+      Alert.alert('Error', 'Age must be between 18 and 120');
+      return;
+    }
     try {
-      await api.updateProfile({ name, age: parseInt(age) || null, bio, location });
+      await api.updateProfile({
+        name: name.trim(),
+        age: ageNum,
+        bio,
+        location,
+        personalityType,
+        lookingFor,
+      });
+
+      const filledPrompts = editPrompts.filter((p) => p.answer.trim());
+      // Only touch prompts if at least one still has an answer — clearing
+      // every slot during an edit is treated as "leave prompts as they are"
+      // rather than silently deleting them all.
+      if (filledPrompts.length > 0) {
+        await api.savePrompts(filledPrompts);
+      }
+
       setEditing(false);
       loadProfile();
       Alert.alert('Saved', 'Profile updated');
     } catch (e) {
       Alert.alert('Error', e.message);
     }
+  };
+
+  const updateEditPromptAnswer = (index, answer) => {
+    setEditPrompts((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], answer };
+      return updated;
+    });
+  };
+
+  const changeEditPrompt = (index) => {
+    setEditPrompts((prev) => {
+      const used = prev.map((p) => p.question);
+      const available = PROMPTS.filter((p) => !used.includes(p));
+      if (available.length === 0) return prev;
+      const updated = [...prev];
+      updated[index] = { question: available[0], answer: '' };
+      return updated;
+    });
   };
 
   const handleAddPhotos = async () => {
@@ -134,6 +204,7 @@ export default function ProfileScreen({ navigation }) {
       }
 
       setUploadingVideo(true);
+      setVideoUploadProgress(null);
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'videos',
         videoMaxDuration: api.VIDEO_MAX_DURATION_SEC,
@@ -152,7 +223,7 @@ export default function ProfileScreen({ navigation }) {
         return;
       }
 
-      const newVideoUrl = await api.uploadVideo(user.id, asset.uri, durationSeconds);
+      const newVideoUrl = await api.uploadVideo(user.id, asset.uri, durationSeconds, setVideoUploadProgress);
       setVideo(newVideoUrl);
     } catch (e) {
       if (e.message?.includes('PHPhotosErrorDomain')) {
@@ -183,6 +254,28 @@ export default function ProfileScreen({ navigation }) {
         },
       },
     ]);
+  };
+
+  const renderVideoUploadProgress = () => {
+    // No progress event has arrived yet — show an honest indeterminate
+    // spinner rather than a percentage bar stuck at 0%.
+    if (videoUploadProgress === null) {
+      return (
+        <View style={styles.videoUploadingState}>
+          <ActivityIndicator size="small" color={COLORS.text} />
+          <Text style={styles.videoUploadPercent}>Uploading...</Text>
+        </View>
+      );
+    }
+    const percent = Math.round(videoUploadProgress * 100);
+    return (
+      <View style={styles.videoUploadingState}>
+        <Text style={styles.videoUploadPercent}>{percent}%</Text>
+        <View style={styles.videoProgressTrack}>
+          <View style={[styles.videoProgressFill, { width: `${percent}%` }]} />
+        </View>
+      </View>
+    );
   };
 
   const renderPhotoItem = ({ item, getIndex, drag, isActive }) => {
@@ -233,6 +326,55 @@ export default function ProfileScreen({ navigation }) {
           <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholderTextColor={COLORS.textMuted} />
           <Text style={styles.label}>Bio</Text>
           <TextInput style={[styles.input, styles.textArea]} value={bio} onChangeText={setBio} multiline maxLength={500} placeholderTextColor={COLORS.textMuted} />
+
+          <Text style={styles.label}>Personality Type</Text>
+          <View style={styles.optionRow}>
+            {PERSONALITY_TYPES.map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[styles.option, personalityType === p && styles.optionActive]}
+                onPress={() => setPersonalityType(p)}
+              >
+                <Text style={[styles.optionText, personalityType === p && styles.optionTextActive]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Looking For</Text>
+          <View style={styles.optionRow}>
+            {LOOKING_FOR.map((l) => (
+              <TouchableOpacity
+                key={l}
+                style={[styles.option, lookingFor === l && styles.optionActive]}
+                onPress={() => setLookingFor(l)}
+              >
+                <Text style={[styles.optionText, lookingFor === l && styles.optionTextActive]}>{l}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Your Prompts</Text>
+          {editPrompts.map((prompt, index) => (
+            <View key={index} style={styles.editPromptCard}>
+              <View style={styles.editPromptHeader}>
+                <Text style={styles.editPromptQuestion}>{prompt.question}</Text>
+                <TouchableOpacity onPress={() => changeEditPrompt(index)}>
+                  <Text style={styles.editChangeText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={styles.editPromptInput}
+                placeholder="Your answer..."
+                placeholderTextColor={COLORS.textMuted}
+                value={prompt.answer}
+                onChangeText={(text) => updateEditPromptAnswer(index, text)}
+                multiline
+                maxLength={200}
+              />
+              <Text style={styles.editCharCount}>{prompt.answer.length}/200</Text>
+            </View>
+          ))}
+
           <View style={styles.editActions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditing(false)}>
               <Text style={styles.cancelText}>Cancel</Text>
@@ -308,19 +450,31 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Video</Text>
 
         {video ? (
-          <TouchableOpacity style={styles.videoCard} onPress={() => setPreviewingVideo(true)} onLongPress={handleDeleteVideo}>
+          <TouchableOpacity style={styles.videoCard} onPress={() => setPreviewingVideo(true)} onLongPress={handleDeleteVideo} disabled={uploadingVideo}>
             <Image key={video} source={{ uri: video }} style={styles.videoThumb} />
-            <View style={styles.videoPlayOverlay}>
-              <Text style={styles.videoPlayIcon}>▶</Text>
-            </View>
-            <TouchableOpacity style={styles.videoReplaceBtn} onPress={handleAddVideo}>
-              <Text style={styles.videoReplaceLabel}>Replace</Text>
-            </TouchableOpacity>
+            {uploadingVideo ? (
+              <View style={styles.videoUploadOverlay}>
+                {renderVideoUploadProgress()}
+              </View>
+            ) : (
+              <>
+                <View style={styles.videoPlayOverlay}>
+                  <Text style={styles.videoPlayIcon}>▶</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.videoReplaceBtn}
+                  onPress={handleAddVideo}
+                  hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                >
+                  <Text style={styles.videoReplaceLabel}>Replace</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.addVideoBtn} onPress={handleAddVideo} disabled={uploadingVideo}>
             {uploadingVideo ? (
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              renderVideoUploadProgress()
             ) : (
               <Text style={styles.addVideoText}>Add Video</Text>
             )}
@@ -366,6 +520,28 @@ const styles = StyleSheet.create({
   label: { color: COLORS.textSecondary, fontSize: 14, marginTop: SPACING.xs },
   input: { backgroundColor: COLORS.inputBg, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, color: COLORS.text, fontSize: 15, borderWidth: 1, borderColor: COLORS.border },
   textArea: { height: 100, textAlignVertical: 'top' },
+  optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  option: {
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.round, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.inputBg,
+  },
+  optionActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  optionText: { color: COLORS.textSecondary, fontSize: 14 },
+  optionTextActive: { color: COLORS.text, fontWeight: '600' },
+  editPromptCard: {
+    backgroundColor: COLORS.bgLight, borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.md, borderWidth: 1, borderColor: COLORS.border,
+  },
+  editPromptHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  editPromptQuestion: { fontSize: 14, color: COLORS.primary, fontWeight: '600', flex: 1 },
+  editChangeText: { color: COLORS.accent, fontSize: 13 },
+  editPromptInput: {
+    backgroundColor: COLORS.inputBg, borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.sm, color: COLORS.text, fontSize: 15, minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  editCharCount: { color: COLORS.textMuted, fontSize: 11, textAlign: 'right', marginTop: 4 },
   editActions: { flexDirection: 'row', gap: SPACING.md, marginTop: SPACING.md },
   cancelBtn: { flex: 1, padding: SPACING.md, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center' },
   cancelText: { color: COLORS.textSecondary, fontSize: 16 },
@@ -389,4 +565,9 @@ const styles = StyleSheet.create({
   videoReplaceLabel: { color: COLORS.text, fontSize: 11 },
   addVideoBtn: { width: PHOTO_SIZE * 2, height: PHOTO_SIZE * 2, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.bgLight },
   addVideoText: { color: COLORS.primary, fontSize: 15, fontWeight: '600' },
+  videoUploadOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: SPACING.md },
+  videoUploadingState: { width: '80%', alignItems: 'center' },
+  videoUploadPercent: { color: COLORS.text, fontSize: 15, fontWeight: '600', marginBottom: SPACING.xs },
+  videoProgressTrack: { width: '80%', height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+  videoProgressFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 2 },
 });

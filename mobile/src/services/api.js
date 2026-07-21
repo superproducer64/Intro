@@ -1,7 +1,10 @@
 // src/services/api.js
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
-import { supabase } from './supabase';
+import { File, UploadType } from 'expo-file-system';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
+import { playMessageSound } from '../utils/notificationSound';
+import { PROMPTS } from '../constants/theme';
 
 let currentSession = null;
 let messageListeners = [];
@@ -237,6 +240,32 @@ export async function getMatches() {
       user: other ? { id: other.id, name: other.name, bio: other.bio ?? '' } : null,
     };
   });
+}
+
+// Profile-based conversation-starter card shown atop a match's chat thread —
+// just the other person's photo + prompts/interests, all already permissively
+// readable by any authenticated user (see `interests`/`prompts`/`profile_photos` RLS).
+export async function getMatchProfileCard(userId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, prompts(prompt_question, answer, sort_order), profile_photos(photo_url, sort_order), interests(interest)')
+    .eq('id', userId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const sortedPhotos = (data.profile_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+  const sortedPrompts = (data.prompts ?? [])
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((p) => ({ prompt_question: p.prompt_question, prompt_answer: p.answer }));
+
+  return {
+    id: data.id,
+    name: data.name,
+    photoUrl: sortedPhotos[0]?.photo_url ?? null,
+    prompts: sortedPrompts,
+    interests: (data.interests ?? []).map((i) => i.interest).filter(Boolean),
+  };
 }
 
 // ==================== CAFÉ ====================
@@ -483,6 +512,7 @@ export async function getProfile() {
     .from('profiles')
     .select('id, name, birthdate, bio, personality_type, looking_for, location, video_url, prompts(prompt_question, answer, sort_order), profile_photos(id, photo_url, sort_order)')
     .eq('id', user.id)
+    .order('sort_order', { foreignTable: 'prompts' })
     .single();
   if (error) throw new Error(error.message);
 
@@ -580,6 +610,7 @@ export function subscribeToMessages() {
           message: row.body,
           created_at: row.created_at,
         };
+        playMessageSound();
         messageListeners.forEach(fn => fn({ type: 'message', data: mapped }));
       }
     )
@@ -611,6 +642,21 @@ export async function savePrompts(prompts) {
     .from('prompts')
     .upsert(rows, { onConflict: 'user_id,prompt_question' });
   if (error) throw new Error(error.message);
+
+  // Editing a prompt's question (via "Change") upserts a new row for the new
+  // question but leaves the old one behind, since upsert never deletes. Clean
+  // up any of this user's rows for a question that isn't part of this save,
+  // so switching a prompt doesn't leave a stale 4th+ prompt on the profile.
+  const keptQuestions = prompts.map((p) => p.question);
+  const droppedQuestions = PROMPTS.filter((q) => !keptQuestions.includes(q));
+  if (droppedQuestions.length > 0) {
+    const { error: cleanupError } = await supabase
+      .from('prompts')
+      .delete()
+      .eq('user_id', user.id)
+      .in('prompt_question', droppedQuestions);
+    if (cleanupError) console.warn('Prompt cleanup failed:', cleanupError.message);
+  }
 }
 
 // ==================== PHOTOS & VIDEO ====================
@@ -710,7 +756,46 @@ export async function reorderPhotos(updates) {
   if (error) throw new Error(error.message);
 }
 
-export async function uploadVideo(userId, localUri, durationSeconds) {
+// supabase-js's storage `.upload()` is fetch-based and reports no progress events.
+// A raw XHR doesn't work either: on iOS, RN's XHR always issues a plain
+// NSURLSessionDataTask (see RCTHTTPRequestHandler.mm), and `didSendBodyData` —
+// the delegate callback `xhr.upload.onprogress` depends on — is only ever
+// invoked for genuine upload tasks, so it never fires. expo-file-system's
+// upload task uses a real native upload path and reports genuine progress.
+function uploadLocalFileWithProgress(bucket, path, localUri, contentType, onProgress) {
+  const file = new File(localUri);
+  return file
+    .upload(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+      httpMethod: 'POST',
+      uploadType: UploadType.BINARY_CONTENT,
+      // The library defaults to a real iOS background NSURLSession (handed
+      // off to the system's nsurlsessiond daemon), which delivers progress
+      // callbacks in far coarser, delayed batches than a foreground session —
+      // that's what made the bar sit on the spinner for the whole upload.
+      // We only need live progress while this screen is open, not background
+      // continuation, so force the foreground session for tight callbacks.
+      sessionType: 'foreground',
+      headers: {
+        Authorization: `Bearer ${currentSession?.access_token}`,
+        apikey: SUPABASE_ANON_KEY,
+        'Content-Type': contentType,
+        'cache-control': 'max-age=3600',
+        'x-upsert': 'false',
+      },
+      onProgress: ({ bytesSent, totalBytes }) => {
+        // TEMP DIAGNOSTIC — remove once on-device testing confirms real percentage updates.
+        console.log('[uploadVideo progress]', bytesSent, '/', totalBytes);
+        if (onProgress && totalBytes > 0) onProgress(bytesSent / totalBytes);
+      },
+    })
+    .then((result) => {
+      if (result.status < 200 || result.status >= 300) {
+        throw new Error(`Upload failed (${result.status}): ${result.body}`);
+      }
+    });
+}
+
+export async function uploadVideo(userId, localUri, durationSeconds, onProgress) {
   if (!userId) throw new Error('Not signed in');
   if (durationSeconds > VIDEO_MAX_DURATION_SEC) {
     throw new Error(`Video must be ${VIDEO_MAX_DURATION_SEC} seconds or shorter`);
@@ -723,14 +808,8 @@ export async function uploadVideo(userId, localUri, durationSeconds) {
     .single();
   if (profileError) throw new Error(profileError.message);
 
-  const response = await fetch(localUri);
-  const arraybuffer = await response.arrayBuffer();
-
   const path = `${userId}/${Crypto.randomUUID()}.mp4`;
-  const { error: uploadError } = await supabase.storage
-    .from('profile-videos')
-    .upload(path, arraybuffer, { contentType: 'video/mp4' });
-  if (uploadError) throw new Error(uploadError.message);
+  await uploadLocalFileWithProgress('profile-videos', path, localUri, 'video/mp4', onProgress);
 
   const { data: publicUrlData } = supabase.storage.from('profile-videos').getPublicUrl(path);
 

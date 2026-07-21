@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
+import { playMessageSound } from '../../utils/notificationSound';
 
 export default function CafeRoomScreen({ route, navigation }) {
   const { roomId, roomTitle } = route.params;
@@ -62,6 +63,7 @@ export default function CafeRoomScreen({ route, navigation }) {
             setParticipants((prev) => prev.filter((p) => p.id !== row.id));
           },
           onMessage: (row) => {
+            if (row.user_id !== currentUser?.id) playMessageSound();
             setMessages((prev) => {
               if (prev.find((m) => m.id === row.id)) return prev;
               return [...prev, { id: row.id, userId: row.user_id, content: row.content, createdAt: row.created_at }];

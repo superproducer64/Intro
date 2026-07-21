@@ -49,3 +49,6 @@ export const PROMPTS = [
   "My go-to comfort food is...",
   "I'm secretly passionate about...",
 ];
+
+export const PERSONALITY_TYPES = ['Introvert', 'Ambivert', 'Extrovert'];
+export const LOOKING_FOR = ['Friendship', 'Dating', 'Long-term', 'Not sure yet'];

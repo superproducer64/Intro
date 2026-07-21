@@ -1,12 +1,12 @@
 // src/screens/Discover/DiscoverScreen.js
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, Image, Alert, Animated, Easing, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, Alert, Animated, Easing } from 'react-native';
 import * as api from '../../services/api';
 import ReportBlockModal from '../../components/ReportBlockModal';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_EXIT_DURATION = 260;
+const PASS_EXIT_DURATION = 160;
 
 const DiscoverScreen = () => {
   const [profiles, setProfiles] = useState([]);
@@ -16,29 +16,20 @@ const DiscoverScreen = () => {
 
   const getCardAnim = (id) => {
     if (!cardAnims[id]) {
-      cardAnims[id] = { translateX: new Animated.Value(0), opacity: new Animated.Value(1) };
+      cardAnims[id] = { opacity: new Animated.Value(1) };
     }
     return cardAnims[id];
   };
 
-  const animateCardExit = (id, direction) => {
-    const { translateX, opacity } = getCardAnim(id);
-    const toValue = direction === 'right' ? SCREEN_WIDTH * 1.2 : -SCREEN_WIDTH * 1.2;
+  const animateCardExit = (id, duration = CARD_EXIT_DURATION) => {
+    const { opacity } = getCardAnim(id);
     return new Promise((resolve) => {
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue,
-          duration: CARD_EXIT_DURATION,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: CARD_EXIT_DURATION,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
         delete cardAnims[id];
         resolve();
       });
@@ -62,13 +53,13 @@ const DiscoverScreen = () => {
   }, []);
 
   const handleLike = async (userId) => {
-    const exitAnim = animateCardExit(userId, 'right');
+    const exitAnim = animateCardExit(userId);
     try {
       const result = await api.likeUser(userId);
       if (result.match) {
         Alert.alert("🎉 It's a Match!", 'You both liked each other!');
       } else {
-        Alert.alert('Sent', 'Gentle connection sent');
+        Alert.alert('Sent', 'Connection sent');
       }
       await exitAnim;
       setProfiles((prev) => prev.filter((p) => p.id !== userId));
@@ -79,7 +70,7 @@ const DiscoverScreen = () => {
   };
 
   const handlePass = async (userId) => {
-    const exitAnim = animateCardExit(userId, 'left');
+    const exitAnim = animateCardExit(userId, PASS_EXIT_DURATION);
     try {
       await api.passUser(userId);
     } catch (error) {
@@ -104,7 +95,7 @@ const DiscoverScreen = () => {
       </Text>
 
       {profiles.map((profile) => {
-        const { translateX, opacity } = getCardAnim(profile.id);
+        const { opacity } = getCardAnim(profile.id);
         return (
         <Animated.View key={profile.id} style={{
           backgroundColor: COLORS.bgCard,
@@ -118,7 +109,6 @@ const DiscoverScreen = () => {
           shadowOpacity: 0.1,
           shadowRadius: 14,
           elevation: 3,
-          transform: [{ translateX }],
           opacity,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -150,7 +140,7 @@ const DiscoverScreen = () => {
             onPress={() => handleLike(profile.id)}
             style={{ backgroundColor: COLORS.accent, borderRadius: BORDER_RADIUS.round, paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.xl }}
           >
-            <Text style={{ color: COLORS.text, fontWeight: '600', fontSize: 16 }}>Send Gentle Connection</Text>
+            <Text style={{ color: COLORS.text, fontWeight: '600', fontSize: 16 }}>Connect</Text>
           </Pressable>
 
           <Pressable

@@ -24,7 +24,9 @@
         "NSMicrophoneUsageDescription": "Intro needs microphone access for video calls with your matches.",
         "NSPhotoLibraryUsageDescription": "Intro needs photo library access to set your profile photo.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["voip"]
+        "UIBackgroundModes": [
+          "voip"
+        ]
       }
     },
     "android": {
@@ -48,6 +50,14 @@
           "enableCamera": true,
           "enableMicrophone": true,
           "enableScreenShare": false
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
         }
       ]
     ],

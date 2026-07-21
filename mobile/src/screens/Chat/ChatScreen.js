@@ -1,16 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Image, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
 import ReportBlockModal from '../../components/ReportBlockModal';
+import { buildConversationStarters } from '../../utils/conversationStarters';
 
 export default function ChatScreen({ route, navigation }) {
   const { matchId, matchUserId, matchName } = route.params;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [starterCard, setStarterCard] = useState(null);
   const flatListRef = useRef();
+  const inputRef = useRef();
   const currentUser = api.getUser();
+
+  useEffect(() => {
+    if (!matchUserId) return;
+    api.getMatchProfileCard(matchUserId)
+      .then((card) => {
+        setStarterCard({
+          photoUrl: card.photoUrl,
+          starters: buildConversationStarters(card.prompts, card.interests),
+        });
+      })
+      .catch((e) => console.error('Load conversation starters error:', e));
+  }, [matchUserId]);
 
   useEffect(() => {
     loadMessages();
@@ -87,6 +102,11 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
+  const useStarter = (starterText) => {
+    setText(starterText);
+    inputRef.current?.focus();
+  };
+
   const renderMessage = ({ item }) => {
     const isMine = item.sender_id === currentUser?.id;
     return (
@@ -116,6 +136,34 @@ export default function ChatScreen({ route, navigation }) {
         </View>
       </View>
 
+      {starterCard && starterCard.starters.length > 0 && (
+        <View style={styles.starterCard}>
+          {starterCard.photoUrl ? (
+            <Image source={{ uri: starterCard.photoUrl }} style={styles.starterPhoto} />
+          ) : (
+            <View style={[styles.starterPhoto, styles.starterPhotoFallback]}>
+              <Text style={styles.starterPhotoFallbackText}>{matchName?.charAt(0) || '?'}</Text>
+            </View>
+          )}
+
+          <Text style={styles.starterLabel}>Ice Breakers</Text>
+          <View style={styles.starterLabelUnderline} />
+
+          <View style={styles.starterBubbleRow}>
+            {starterCard.starters.map((starter) => (
+              <TouchableOpacity
+                key={starter.id}
+                style={styles.starterBubble}
+                onPress={() => useStarter(starter.composeText)}
+              >
+                <Text style={styles.starterBubbleIcon}>{starter.icon}</Text>
+                <Text style={styles.starterBubbleText} numberOfLines={2}>"{starter.quote}"</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
       <FlatList
         ref={flatListRef}
         data={messages}
@@ -127,6 +175,7 @@ export default function ChatScreen({ route, navigation }) {
 
       <View style={styles.inputRow}>
         <TextInput
+          ref={inputRef}
           style={styles.input}
           placeholder="Type a message..."
           placeholderTextColor={COLORS.textMuted}
@@ -164,6 +213,33 @@ const styles = StyleSheet.create({
   videoCallBtn: { padding: 2 },
   videoCallIcon: { fontSize: 20 },
   moreBtn: { fontSize: 20, color: COLORS.textMuted },
+  starterCard: {
+    padding: SPACING.md,
+    alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.bgLight,
+  },
+  starterPhoto: {
+    width: 88, height: 88, borderRadius: 44,
+    borderWidth: 2, borderColor: COLORS.border,
+  },
+  starterPhotoFallback: { backgroundColor: COLORS.bgCard, justifyContent: 'center', alignItems: 'center' },
+  starterPhotoFallbackText: { fontSize: 32, color: COLORS.primary, fontWeight: 'bold' },
+  starterLabel: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginTop: SPACING.sm },
+  starterLabelUnderline: {
+    width: 32, height: 3, borderRadius: 2,
+    backgroundColor: COLORS.accent,
+    marginTop: 4, marginBottom: SPACING.md,
+  },
+  starterBubbleRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: SPACING.xs },
+  starterBubble: {
+    flexDirection: 'row', alignItems: 'center',
+    maxWidth: '100%',
+    backgroundColor: COLORS.inputBg, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs,
+  },
+  starterBubbleIcon: { fontSize: 15, marginRight: SPACING.xs },
+  starterBubbleText: { fontSize: 13, color: COLORS.text, flexShrink: 1 },
   messageList: { padding: SPACING.md, flexGrow: 1 },
   messageBubble: { maxWidth: '75%', padding: SPACING.sm, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.sm },
   myMessage: { alignSelf: 'flex-end', backgroundColor: COLORS.primary },

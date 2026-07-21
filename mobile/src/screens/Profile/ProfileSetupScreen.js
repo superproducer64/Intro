@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import { COLORS, SPACING, BORDER_RADIUS, PROMPTS } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES, LOOKING_FOR } from '../../constants/theme';
 import * as api from '../../services/api';
-
-const PERSONALITY_TYPES = ['Introvert', 'Ambivert', 'Extrovert'];
-const LOOKING_FOR = ['Friendship', 'Dating', 'Long-term', 'Not sure yet'];
 
 export default function ProfileSetupScreen({ navigation, route }) {
   // 'loading' while we check whether basic info already exists (email flow already

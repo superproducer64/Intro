@@ -18,6 +18,14 @@ export default function VideoCallScreen({ route, navigation }) {
     const call = Daily.createCallObject();
     callRef.current = call;
 
+    // In call-object mode (no iframe) daily-js never folds a `token` property
+    // back into the URL — that only happens for iframe `src` assembly. A token
+    // embedded as `?t=` here would be silently ignored, so it must be split out
+    // and passed as its own `join()` property.
+    const tokenMatch = roomUrl.match(/[?&]t=([^&]+)/);
+    const baseUrl = roomUrl.split('?')[0];
+    const meetingToken = tokenMatch ? tokenMatch[1] : undefined;
+
     const refreshParticipants = () => setParticipants({ ...call.participants() });
 
     const handleJoinedMeeting = () => {
@@ -51,7 +59,7 @@ export default function VideoCallScreen({ route, navigation }) {
     call.on('participant-left', handleParticipantLeft);
     call.on('error', handleError);
 
-    call.join({ url: roomUrl }).catch((e) => {
+    call.join({ url: baseUrl, token: meetingToken }).catch((e) => {
       // Daily's rejected-join error objects use `errorMsg` + `error.type`, not `.message` —
       // reading `.message` here was silently swallowing the real reason every time.
       console.error('Daily join() rejected:', JSON.stringify(e), e);
