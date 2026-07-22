@@ -12,11 +12,33 @@ const REPORT_REASONS = [
   'Other',
 ];
 
-export default function ReportBlockModal({ visible, onClose, userId, userName, onBlocked }) {
+export default function ReportBlockModal({ visible, onClose, userId, userName, matchId, onBlocked, onUnmatched }) {
   const [mode, setMode] = useState(null);
   const [reason, setReason] = useState('');
   const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const handleUnmatch = () => {
+    Alert.alert(
+      'Unmatch',
+      `Are you sure you want to unmatch with ${userName}? This can't be undone from your side, and they won't be notified.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unmatch',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.unmatch(matchId);
+              onUnmatched?.();
+            } catch (e) {
+              Alert.alert('Error', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleBlock = () => {
     Alert.alert(
@@ -79,6 +101,12 @@ export default function ReportBlockModal({ visible, onClose, userId, userName, o
                 <Text style={styles.menuIcon}>⚠</Text>
                 <Text style={styles.menuText}>Report User</Text>
               </TouchableOpacity>
+              {matchId && (
+                <TouchableOpacity style={[styles.menuItem, styles.dangerItem]} onPress={handleUnmatch}>
+                  <Text style={styles.menuIcon}>💔</Text>
+                  <Text style={styles.dangerText}>Unmatch</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={[styles.menuItem, styles.dangerItem]} onPress={handleBlock}>
                 <Text style={styles.menuIcon}>🚫</Text>
                 <Text style={styles.dangerText}>Block User</Text>

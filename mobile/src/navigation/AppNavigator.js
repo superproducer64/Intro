@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 
 import LoginScreen from '../screens/Auth/LoginScreen';
@@ -14,6 +15,7 @@ import VideoCallScreen from '../screens/VideoCall/VideoCallScreen';
 import ExperiencesScreen from '../screens/Experiences/ExperiencesScreen';
 import CafeRoomScreen from '../screens/Experiences/CafeRoomScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
+import ViewProfileScreen from '../screens/Profile/ViewProfileScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import PrivacyPolicyScreen from '../screens/Legal/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/Legal/TermsOfServiceScreen';
@@ -34,11 +36,15 @@ function TabIcon({ label, focused }) {
 }
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 12);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { height: 56 + bottomInset, paddingBottom: bottomInset }],
+        tabBarItemStyle: styles.tabItemWrapper,
         tabBarShowLabel: false,
         tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
       })}
@@ -63,6 +69,7 @@ function AuthenticatedStack() {
       <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
         <AuthStack.Screen name="Main" component={MainTabs} />
         <AuthStack.Screen name="Chat" component={ChatScreen} />
+        <AuthStack.Screen name="ViewProfile" component={ViewProfileScreen} />
         <AuthStack.Screen name="VideoCall" component={VideoCallScreen} options={{ presentation: 'fullScreenModal' }} />
         <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
         <AuthStack.Screen name="Settings" component={SettingsScreen} />
@@ -95,12 +102,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgLight,
     borderTopColor: COLORS.border,
     borderTopWidth: 1,
-    height: 80,
-    paddingBottom: 20,
-    paddingTop: 8,
+    paddingTop: 10,
   },
-  tabItem: { alignItems: 'center', gap: 2 },
+  tabItemWrapper: { paddingHorizontal: 6 },
+  tabItem: { alignItems: 'center', gap: 4 },
   tabIcon: { fontSize: 22 },
-  tabLabel: { fontSize: 11, color: COLORS.textMuted },
+  tabLabel: { fontSize: 10, color: COLORS.textMuted },
   tabLabelActive: { color: COLORS.primary, fontWeight: '600' },
 });

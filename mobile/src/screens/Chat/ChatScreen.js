@@ -138,13 +138,15 @@ export default function ChatScreen({ route, navigation }) {
 
       {starterCard && starterCard.starters.length > 0 && (
         <View style={styles.starterCard}>
-          {starterCard.photoUrl ? (
-            <Image source={{ uri: starterCard.photoUrl }} style={styles.starterPhoto} />
-          ) : (
-            <View style={[styles.starterPhoto, styles.starterPhotoFallback]}>
-              <Text style={styles.starterPhotoFallbackText}>{matchName?.charAt(0) || '?'}</Text>
-            </View>
-          )}
+          <TouchableOpacity onPress={() => navigation.navigate('ViewProfile', { userId: matchUserId, name: matchName })}>
+            {starterCard.photoUrl ? (
+              <Image source={{ uri: starterCard.photoUrl }} style={styles.starterPhoto} />
+            ) : (
+              <View style={[styles.starterPhoto, styles.starterPhotoFallback]}>
+                <Text style={styles.starterPhotoFallbackText}>{matchName?.charAt(0) || '?'}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
           <Text style={styles.starterLabel}>Ice Breakers</Text>
           <View style={styles.starterLabelUnderline} />
@@ -194,7 +196,9 @@ export default function ChatScreen({ route, navigation }) {
         onClose={() => setModalVisible(false)}
         userId={matchUserId}
         userName={matchName}
+        matchId={matchId}
         onBlocked={() => { setModalVisible(false); navigation.goBack(); }}
+        onUnmatched={() => { setModalVisible(false); navigation.goBack(); }}
       />
     </KeyboardAvoidingView>
   );

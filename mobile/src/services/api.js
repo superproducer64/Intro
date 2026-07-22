@@ -228,7 +228,9 @@ export async function getMatches() {
       user1:profiles!matches_user1_id_fkey(id, name, bio),
       user2:profiles!matches_user2_id_fkey(id, name, bio)
     `)
-    .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+    // Excludes matches this user has unmatched (hidden on their own side only —
+    // the other person's copy of the match is untouched, see `unmatch()`).
+    .or(`and(user1_id.eq.${user.id},hidden_by_user1.eq.false),and(user2_id.eq.${user.id},hidden_by_user2.eq.false)`)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
 
@@ -240,6 +242,29 @@ export async function getMatches() {
       user: other ? { id: other.id, name: other.name, bio: other.bio ?? '' } : null,
     };
   });
+}
+
+// Soft-hide only: marks the match hidden on the caller's side (`matches` RLS
+// only allows each user to update their own hidden_by_userN column via the
+// "unmatch own side" policy). The other person's copy is untouched and they
+// get no notification — they'll just stop hearing from this user.
+export async function unmatch(matchId) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { data: match, error: fetchError } = await supabase
+    .from('matches')
+    .select('user1_id, user2_id')
+    .eq('id', matchId)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+
+  const column = match.user1_id === user.id ? 'hidden_by_user1' : 'hidden_by_user2';
+  const { error } = await supabase
+    .from('matches')
+    .update({ [column]: true })
+    .eq('id', matchId);
+  if (error) throw new Error(error.message);
 }
 
 // Profile-based conversation-starter card shown atop a match's chat thread —
@@ -263,6 +288,40 @@ export async function getMatchProfileCard(userId) {
     id: data.id,
     name: data.name,
     photoUrl: sortedPhotos[0]?.photo_url ?? null,
+    prompts: sortedPrompts,
+    interests: (data.interests ?? []).map((i) => i.interest).filter(Boolean),
+  };
+}
+
+// Full read-only profile for another user — same shape as getProfile() plus
+// interests, parameterized by userId. Used by the "view profile" screen
+// reached from a match's chat or a café participant's avatar; all of these
+// fields are already permissively readable by any authenticated user (see
+// `interests`/`prompts`/`profile_photos` RLS).
+export async function getUserProfile(userId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, birthdate, bio, personality_type, looking_for, location, video_url, prompts(prompt_question, answer, sort_order), profile_photos(photo_url, sort_order), interests(interest)')
+    .eq('id', userId)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const sortedPhotos = (data.profile_photos ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+  const sortedPrompts = (data.prompts ?? [])
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((p) => ({ prompt_question: p.prompt_question, prompt_answer: p.answer }));
+
+  return {
+    id: data.id,
+    name: data.name,
+    age: birthdateToAge(data.birthdate),
+    bio: data.bio ?? '',
+    photos: sortedPhotos.map((p) => p.photo_url),
+    video_url: data.video_url ?? null,
+    personality_type: data.personality_type ?? null,
+    looking_for: data.looking_for ?? null,
+    location: data.location ?? null,
     prompts: sortedPrompts,
     interests: (data.interests ?? []).map((i) => i.interest).filter(Boolean),
   };

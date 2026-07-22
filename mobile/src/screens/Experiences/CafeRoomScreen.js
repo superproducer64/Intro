@@ -110,7 +110,10 @@ export default function CafeRoomScreen({ route, navigation }) {
   };
 
   const renderParticipant = ({ item }) => (
-    <View style={styles.participant}>
+    <TouchableOpacity
+      style={styles.participant}
+      onPress={() => navigation.navigate('ViewProfile', { userId: item.userId, name: item.name })}
+    >
       {item.photoUrl ? (
         <Image source={{ uri: item.photoUrl }} style={styles.participantAvatarImage} />
       ) : (
@@ -119,7 +122,7 @@ export default function CafeRoomScreen({ route, navigation }) {
         </View>
       )}
       <Text style={styles.participantName} numberOfLines={1}>{item.name}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderMessage = ({ item }) => {

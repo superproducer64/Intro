@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
@@ -25,10 +25,35 @@ export default function MatchesScreen({ navigation }) {
     }, [])
   );
 
+  const handleUnmatch = (match) => {
+    const name = match.user?.name || 'this person';
+    Alert.alert(
+      'Unmatch',
+      `Are you sure you want to unmatch with ${name}? This can't be undone from your side, and they won't be notified.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unmatch',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.unmatch(match.id);
+              setMatches((prev) => prev.filter((m) => m.id !== match.id));
+            } catch (e) {
+              Alert.alert('Error', e.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderMatch = ({ item }) => (
     <TouchableOpacity
       style={styles.matchCard}
       onPress={() => navigation.navigate('Chat', { matchId: item.id, matchUserId: item.user?.id, matchName: item.user?.name })}
+      onLongPress={() => handleUnmatch(item)}
+      delayLongPress={300}
     >
       <View style={styles.avatar}>
         <Text style={styles.avatarText}>{item.user?.name?.charAt(0) || '?'}</Text>
@@ -52,6 +77,7 @@ export default function MatchesScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Matches</Text>
+      {matches.length > 0 && <Text style={styles.hint}>Hold a match to unmatch</Text>}
       {matches.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyIcon}>💜</Text>
@@ -74,6 +100,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg, paddingTop: SPACING.xxl },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
   header: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, textAlign: 'center', marginBottom: SPACING.md },
+  hint: { fontSize: 12, color: COLORS.textMuted, textAlign: 'center', marginTop: -SPACING.sm, marginBottom: SPACING.md },
   list: { padding: SPACING.md },
   matchCard: {
     flexDirection: 'row', alignItems: 'center',

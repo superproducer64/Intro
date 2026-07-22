@@ -65,8 +65,7 @@
     "extra": {
       "eas": {
         "projectId": "e6b34b98-b3f4-450a-94f8-69146b0464db"
-      },
-      "apiUrl": "https://intro-bgpstudioshou.replit.app"
+      }
     }
   }
 }

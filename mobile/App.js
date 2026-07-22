@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { COLORS } from './src/constants/theme';
@@ -14,6 +15,15 @@ export default function App() {
   const fadeAnim = useState(new Animated.Value(1))[0];
 
   useEffect(() => {
+    let cancelled = false;
+    let dismissed = false;
+    const timers = [];
+    const dismissSplash = () => {
+      if (dismissed || cancelled) return;
+      dismissed = true;
+      setShowSplash(false);
+    };
+
     async function init() {
       try {
         const session = await api.initAuth();
@@ -24,43 +34,55 @@ export default function App() {
       } catch (e) {
         console.warn('initAuth failed, proceeding as logged out:', e.message);
       } finally {
+        if (cancelled) return;
         setReady(true);
-        setTimeout(() => {
+        timers.push(setTimeout(() => {
+          if (cancelled) return;
           Animated.timing(fadeAnim, {
             toValue: 0,
             duration: 500,
             useNativeDriver: true,
-          }).start(() => setShowSplash(false));
-        }, 2000);
+          }).start(dismissSplash);
+          // Safety net: if the animation callback is ever skipped (e.g. app
+          // backgrounded mid-fade), still guarantee the splash gets dismissed.
+          timers.push(setTimeout(dismissSplash, 800));
+        }, 2000));
       }
     }
     init();
+
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: COLORS.bg }} />;
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <StatusBar style="light" />
-      <NavigationContainer theme={{
-        dark: true,
-        colors: { primary: COLORS.primary, background: COLORS.bg, card: COLORS.bgLight, text: COLORS.text, border: COLORS.border, notification: COLORS.primary },
-        fonts: {
-          regular: { fontFamily: 'System', fontWeight: '400' },
-          medium: { fontFamily: 'System', fontWeight: '500' },
-          bold: { fontFamily: 'System', fontWeight: '700' },
-          heavy: { fontFamily: 'System', fontWeight: '800' },
-        },
-      }}>
-        <AppNavigator initialRoute={initialRoute} />
-      </NavigationContainer>
-      {showSplash && (
-        <Animated.View style={[styles.splash, { opacity: fadeAnim }]}>
-          <Text style={styles.splashLogo}>INTRO</Text>
-          <Text style={styles.splashTagline}>Dating for Introverts</Text>
-        </Animated.View>
-      )}
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={styles.container}>
+        <StatusBar style="light" />
+        <NavigationContainer theme={{
+          dark: true,
+          colors: { primary: COLORS.primary, background: COLORS.bg, card: COLORS.bgLight, text: COLORS.text, border: COLORS.border, notification: COLORS.primary },
+          fonts: {
+            regular: { fontFamily: 'System', fontWeight: '400' },
+            medium: { fontFamily: 'System', fontWeight: '500' },
+            bold: { fontFamily: 'System', fontWeight: '700' },
+            heavy: { fontFamily: 'System', fontWeight: '800' },
+          },
+        }}>
+          <AppNavigator initialRoute={initialRoute} />
+        </NavigationContainer>
+        {showSplash && (
+          <Animated.View style={[styles.splash, { opacity: fadeAnim }]}>
+            <Text style={styles.splashLogo}>INTRO</Text>
+            <Text style={styles.splashTagline}>Dating for Introverts</Text>
+          </Animated.View>
+        )}
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 
