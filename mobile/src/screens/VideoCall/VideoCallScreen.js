@@ -13,10 +13,12 @@ export default function VideoCallScreen({ route, navigation }) {
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [error, setError] = useState(null);
   const hadRemoteRef = useRef(false);
+  const endingRef = useRef(false);
 
   useEffect(() => {
     const call = Daily.createCallObject();
     callRef.current = call;
+    let isMounted = true;
 
     // In call-object mode (no iframe) daily-js never folds a `token` property
     // back into the URL — that only happens for iframe `src` assembly. A token
@@ -26,31 +28,61 @@ export default function VideoCallScreen({ route, navigation }) {
     const baseUrl = roomUrl.split('?')[0];
     const meetingToken = tokenMatch ? tokenMatch[1] : undefined;
 
-    const refreshParticipants = () => setParticipants({ ...call.participants() });
+    const refreshParticipants = () => {
+      if (!isMounted) return;
+      setParticipants({ ...(call.participants() || {}) });
+    };
 
+    // Every listener below runs inside a native->JS TurboModule callback invocation.
+    // An uncaught throw in here doesn't get caught by React — it propagates back through
+    // the bridge and RN escalates it to a fatal native abort (RCTFatal), hard-crashing the
+    // app instead of just failing this one call. Catch and log instead of letting that happen.
     const handleJoinedMeeting = () => {
-      setJoined(true);
-      refreshParticipants();
+      try {
+        if (!isMounted) return;
+        setJoined(true);
+        refreshParticipants();
+      } catch (e) {
+        console.error('Daily joined-meeting handler error:', e);
+      }
     };
 
     const handleParticipantLeft = () => {
-      refreshParticipants();
-      const remoteCount = Object.values(call.participants()).filter((p) => !p.local).length;
-      if (hadRemoteRef.current && remoteCount === 0) {
-        // The other party left — end the call from our side too and back out.
-        endAndLeave();
+      try {
+        if (!isMounted) return;
+        refreshParticipants();
+        const remoteCount = Object.values(call.participants() || {}).filter((p) => !p.local).length;
+        if (hadRemoteRef.current && remoteCount === 0) {
+          // The other party left — end the call from our side too and back out.
+          endAndLeave();
+        }
+      } catch (e) {
+        console.error('Daily participant-left handler error:', e);
       }
     };
 
     const handleParticipantUpdate = () => {
-      refreshParticipants();
-      const remoteCount = Object.values(call.participants()).filter((p) => !p.local).length;
-      if (remoteCount > 0) hadRemoteRef.current = true;
+      try {
+        if (!isMounted) return;
+        refreshParticipants();
+        const remoteCount = Object.values(call.participants() || {}).filter((p) => !p.local).length;
+        if (remoteCount > 0) hadRemoteRef.current = true;
+      } catch (e) {
+        console.error('Daily participant-update handler error:', e);
+      }
     };
 
     const handleError = (e) => {
-      console.error('Daily call error event:', JSON.stringify(e), e);
-      setError(e?.errorMsg || 'Video call error');
+      try {
+        // Don't JSON.stringify the raw SDK error payload — Daily error objects can embed
+        // non-plain/circular references (e.g. back to a track or session object), and
+        // JSON.stringify throws on those. console.error can print `e` directly.
+        console.error('Daily call error event:', e);
+        if (!isMounted) return;
+        setError(e?.errorMsg || 'Video call error');
+      } catch (err) {
+        console.error('Daily error handler failed:', err);
+      }
     };
 
     call.on('joined-meeting', handleJoinedMeeting);
@@ -62,11 +94,13 @@ export default function VideoCallScreen({ route, navigation }) {
     call.join({ url: baseUrl, token: meetingToken }).catch((e) => {
       // Daily's rejected-join error objects use `errorMsg` + `error.type`, not `.message` —
       // reading `.message` here was silently swallowing the real reason every time.
-      console.error('Daily join() rejected:', JSON.stringify(e), e);
+      console.error('Daily join() rejected:', e);
+      if (!isMounted) return;
       setError(e?.errorMsg || e?.error?.type || e?.message || 'Failed to join call');
     });
 
     return () => {
+      isMounted = false;
       call.off('joined-meeting', handleJoinedMeeting);
       call.off('participant-joined', handleParticipantUpdate);
       call.off('participant-updated', handleParticipantUpdate);
@@ -79,6 +113,10 @@ export default function VideoCallScreen({ route, navigation }) {
   }, [roomUrl]);
 
   const endAndLeave = async () => {
+    // participant-left can re-fire (and the end-call button can be pressed) more than once
+    // during teardown — without this guard that means duplicate navigation.goBack() calls.
+    if (endingRef.current) return;
+    endingRef.current = true;
     try {
       await api.endVideoCall(callId);
     } catch (e) {
