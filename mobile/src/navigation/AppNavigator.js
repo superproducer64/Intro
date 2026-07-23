@@ -25,12 +25,20 @@ const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// Tab bar display text — kept separate from the route name ("Experiences")
+// so navigation elsewhere in the app is unaffected. "Café" matches what the
+// screen itself is already titled and is the widest label by a wide margin
+// (~55-65pt vs ~19-24pt at fontSize 10), so shortening it is what actually
+// creates visible breathing room between tabs — see AppNavigator tab-bar
+// width calculations; padding on already-centered flex content does not.
+const TAB_LABELS = { Experiences: 'Café' };
+
 function TabIcon({ label, focused }) {
   const icons = { Discover: '🔍', Matches: '💜', Experiences: '☕', Profile: '👤' };
   return (
     <View style={styles.tabItem}>
       <Text style={styles.tabIcon}>{icons[label]}</Text>
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{label}</Text>
+      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{TAB_LABELS[label] || label}</Text>
     </View>
   );
 }
@@ -44,7 +52,6 @@ function MainTabs() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: [styles.tabBar, { height: 56 + bottomInset, paddingBottom: bottomInset }],
-        tabBarItemStyle: styles.tabItemWrapper,
         tabBarShowLabel: false,
         tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
       })}
@@ -104,7 +111,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingTop: 10,
   },
-  tabItemWrapper: { paddingHorizontal: 6 },
   tabItem: { alignItems: 'center', gap: 4 },
   tabIcon: { fontSize: 22 },
   tabLabel: { fontSize: 10, color: COLORS.textMuted },

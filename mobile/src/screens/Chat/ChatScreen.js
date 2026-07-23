@@ -63,7 +63,23 @@ export default function ChatScreen({ route, navigation }) {
             },
             {
               text: 'Accept',
-              onPress: () => navigation.navigate('VideoCall', { callId: call.id, roomUrl: call.room_url, matchName }),
+              onPress: () => {
+                // TEMP DIAGNOSTIC (accept-crash investigation): validate the
+                // realtime row before navigating and log/catch anything that
+                // would otherwise fail silently, since the reported crash has
+                // no JS error message attached.
+                if (!call.id || !call.room_url) {
+                  console.error('Accept video call: malformed call row', call);
+                  Alert.alert('Error', "Couldn't join the call — please try again.");
+                  return;
+                }
+                try {
+                  navigation.navigate('VideoCall', { callId: call.id, roomUrl: call.room_url, matchName });
+                } catch (e) {
+                  console.error('Accept video call navigation error:', e);
+                  Alert.alert('Error', "Couldn't open the video call.");
+                }
+              },
             },
           ]
         );

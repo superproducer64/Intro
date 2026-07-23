@@ -5,7 +5,10 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
 
 export default function VideoCallScreen({ route, navigation }) {
-  const { callId, roomUrl, matchName } = route.params;
+  // TEMP DIAGNOSTIC (accept-crash investigation): route.params has always
+  // been well-formed in every path traced so far, but a hard crash with no
+  // JS error attached means every assumption gets a guard until proven safe.
+  const { callId, roomUrl, matchName } = route.params || {};
   const callRef = useRef(null);
   const [joined, setJoined] = useState(false);
   const [participants, setParticipants] = useState({});
@@ -16,7 +19,23 @@ export default function VideoCallScreen({ route, navigation }) {
   const endingRef = useRef(false);
 
   useEffect(() => {
-    const call = Daily.createCallObject();
+    if (!roomUrl) {
+      console.error('VideoCallScreen mounted without a roomUrl param:', route.params);
+      setError('Missing call information — please try again.');
+      return;
+    }
+
+    let call;
+    try {
+      call = Daily.createCallObject();
+    } catch (e) {
+      // TEMP DIAGNOSTIC (accept-crash investigation): createCallObject() is a
+      // native-module call — if it's the source of the reported hard crash,
+      // this at least converts it into a catchable, logged failure.
+      console.error('Daily.createCallObject() threw:', e);
+      setError('Could not start the video call on this device.');
+      return;
+    }
     callRef.current = call;
     let isMounted = true;
 
