@@ -8,7 +8,7 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 const CARD_EXIT_DURATION = 260;
 const PASS_EXIT_DURATION = 160;
 
-const DiscoverScreen = () => {
+const DiscoverScreen = ({ navigation }) => {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reportTarget, setReportTarget] = useState(null);
@@ -111,30 +111,32 @@ const DiscoverScreen = () => {
           elevation: 3,
           opacity,
         }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', flex: 1 }}>
-              <Text style={{ fontSize: 28, fontWeight: '300', color: COLORS.text }}>
-                {profile.name}
-              </Text>
-              <Text style={{ fontSize: 16, color: COLORS.textSecondary, marginLeft: SPACING.xs }}>
-                · {profile.age}
-              </Text>
+          <Pressable onPress={() => navigation.navigate('ViewProfile', { userId: profile.id, name: profile.name })}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', flex: 1 }}>
+                <Text style={{ fontSize: 28, fontWeight: '300', color: COLORS.text }}>
+                  {profile.name}
+                </Text>
+                <Text style={{ fontSize: 16, color: COLORS.textSecondary, marginLeft: SPACING.xs }}>
+                  · {profile.age}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setReportTarget(profile)}
+                hitSlop={12}
+                style={{ paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs }}
+                accessibilityLabel={`Report or block ${profile.name}`}
+              >
+                <Text style={{ fontSize: 22, color: COLORS.textMuted }}>⋯</Text>
+              </Pressable>
             </View>
-            <Pressable
-              onPress={() => setReportTarget(profile)}
-              hitSlop={12}
-              style={{ paddingHorizontal: SPACING.sm, paddingVertical: SPACING.xs }}
-              accessibilityLabel={`Report or block ${profile.name}`}
-            >
-              <Text style={{ fontSize: 22, color: COLORS.textMuted }}>⋯</Text>
-            </Pressable>
-          </View>
 
-          {profile.photos?.[0] && (
-            <Image source={{ uri: profile.photos[0] }} style={{ width: '100%', height: 280, borderRadius: BORDER_RADIUS.lg, marginTop: SPACING.md }} />
-          )}
+            {profile.photos?.[0] && (
+              <Image source={{ uri: profile.photos[0] }} style={{ width: '100%', height: 280, borderRadius: BORDER_RADIUS.lg, marginTop: SPACING.md }} />
+            )}
 
-          <Text style={{ fontSize: 15, color: COLORS.textSecondary, marginTop: SPACING.md, lineHeight: 24 }}>{profile.bio}</Text>
+            <Text style={{ fontSize: 15, color: COLORS.textSecondary, marginTop: SPACING.md, lineHeight: 24 }}>{profile.bio}</Text>
+          </Pressable>
 
           <Pressable
             onPress={() => handleLike(profile.id)}
