@@ -42,7 +42,7 @@ export default function InlineVideoPlayer({ uri, style, onLongPress, disabled, o
 
 const styles = StyleSheet.create({
   card: { overflow: 'hidden', backgroundColor: COLORS.bgLight, justifyContent: 'center', alignItems: 'center' },
-  video: { ...StyleSheet.absoluteFillObject },
+  video: { width: '100%', height: '100%' },
   playOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   playButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   playIcon: { fontSize: 20, color: COLORS.text },
