@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { NestableScrollContainer, NestableDraggableFlatList } from 'react-native-draggable-flatlist';
 import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES, LOOKING_FOR } from '../../constants/theme';
 import * as api from '../../services/api';
-import VideoPreviewModal from '../../components/VideoPreviewModal';
+import InlineVideoPlayer from '../../components/InlineVideoPlayer';
 
 const GRID_GAP = SPACING.sm;
 const GRID_PADDING = SPACING.lg;
@@ -43,7 +43,6 @@ export default function ProfileScreen({ navigation }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(null);
-  const [previewingVideo, setPreviewingVideo] = useState(false);
 
   const loadProfile = async () => {
     try {
@@ -297,7 +296,6 @@ export default function ProfileScreen({ navigation }) {
   }
 
   return (
-    <>
     <NestableScrollContainer style={styles.container} contentContainerStyle={styles.scroll}>
       <View style={styles.headerRow}>
         <Text style={styles.header}>Profile</Text>
@@ -450,27 +448,27 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Video</Text>
 
         {video ? (
-          <TouchableOpacity style={styles.videoCard} onPress={() => setPreviewingVideo(true)} onLongPress={handleDeleteVideo} disabled={uploadingVideo}>
-            <Image key={video} source={{ uri: video }} style={styles.videoThumb} />
+          <InlineVideoPlayer
+            key={video}
+            uri={video}
+            style={styles.videoCard}
+            onLongPress={handleDeleteVideo}
+            disabled={uploadingVideo}
+          >
             {uploadingVideo ? (
               <View style={styles.videoUploadOverlay}>
                 {renderVideoUploadProgress()}
               </View>
             ) : (
-              <>
-                <View style={styles.videoPlayOverlay}>
-                  <Text style={styles.videoPlayIcon}>▶</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.videoReplaceBtn}
-                  onPress={handleAddVideo}
-                  hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-                >
-                  <Text style={styles.videoReplaceLabel}>Replace</Text>
-                </TouchableOpacity>
-              </>
+              <TouchableOpacity
+                style={styles.videoReplaceBtn}
+                onPress={handleAddVideo}
+                hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+              >
+                <Text style={styles.videoReplaceLabel}>Replace</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+          </InlineVideoPlayer>
         ) : (
           <TouchableOpacity style={styles.addVideoBtn} onPress={handleAddVideo} disabled={uploadingVideo}>
             {uploadingVideo ? (
@@ -482,13 +480,6 @@ export default function ProfileScreen({ navigation }) {
         )}
       </View>
     </NestableScrollContainer>
-
-    <VideoPreviewModal
-      visible={previewingVideo}
-      uri={video}
-      onClose={() => setPreviewingVideo(false)}
-    />
-    </>
   );
 }
 
@@ -558,9 +549,6 @@ const styles = StyleSheet.create({
   addPhotoIcon: { fontSize: 28, color: COLORS.primary, marginBottom: 2 },
   addPhotoText: { fontSize: 12, color: COLORS.textSecondary },
   videoCard: { width: PHOTO_SIZE * 2, height: PHOTO_SIZE * 2, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', backgroundColor: COLORS.bgLight, justifyContent: 'center', alignItems: 'center' },
-  videoThumb: { width: '100%', height: '100%', position: 'absolute' },
-  videoPlayOverlay: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  videoPlayIcon: { fontSize: 20, color: COLORS.text },
   videoReplaceBtn: { position: 'absolute', bottom: SPACING.xs, right: SPACING.xs, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: SPACING.xs, paddingVertical: 2, borderRadius: BORDER_RADIUS.sm },
   videoReplaceLabel: { color: COLORS.text, fontSize: 11 },
   addVideoBtn: { width: PHOTO_SIZE * 2, height: PHOTO_SIZE * 2, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.bgLight },

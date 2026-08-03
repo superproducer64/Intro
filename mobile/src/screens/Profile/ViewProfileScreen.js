@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Dimensions } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
-import VideoPreviewModal from '../../components/VideoPreviewModal';
+import InlineVideoPlayer from '../../components/InlineVideoPlayer';
 
 const GRID_GAP = SPACING.sm;
 const GRID_PADDING = SPACING.lg;
@@ -13,7 +13,6 @@ export default function ViewProfileScreen({ route, navigation }) {
   const { userId, name: fallbackName } = route.params;
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [previewingVideo, setPreviewingVideo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,8 +25,7 @@ export default function ViewProfileScreen({ route, navigation }) {
   }, [userId]);
 
   return (
-    <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Text style={styles.backBtn}>‹ Back</Text>
@@ -100,24 +98,12 @@ export default function ViewProfileScreen({ route, navigation }) {
             {profile.video_url && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Video</Text>
-                <TouchableOpacity style={styles.videoCard} onPress={() => setPreviewingVideo(true)}>
-                  <Image source={{ uri: profile.video_url }} style={styles.videoThumb} />
-                  <View style={styles.videoPlayOverlay}>
-                    <Text style={styles.videoPlayIcon}>▶</Text>
-                  </View>
-                </TouchableOpacity>
+                <InlineVideoPlayer key={profile.video_url} uri={profile.video_url} style={styles.videoCard} />
               </View>
             )}
           </>
         )}
-      </ScrollView>
-
-      <VideoPreviewModal
-        visible={previewingVideo}
-        uri={profile?.video_url}
-        onClose={() => setPreviewingVideo(false)}
-      />
-    </>
+    </ScrollView>
   );
 }
 
@@ -152,7 +138,4 @@ const styles = StyleSheet.create({
   photoCellNoMargin: { marginRight: 0 },
   photoImage: { width: '100%', height: '100%' },
   videoCard: { width: PHOTO_SIZE * 2, height: PHOTO_SIZE * 2, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', backgroundColor: COLORS.bgLight, justifyContent: 'center', alignItems: 'center' },
-  videoThumb: { width: '100%', height: '100%', position: 'absolute' },
-  videoPlayOverlay: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  videoPlayIcon: { fontSize: 20, color: COLORS.text },
 });

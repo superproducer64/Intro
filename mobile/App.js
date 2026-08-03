@@ -48,12 +48,12 @@ export default function App() {
 
     // Hard ceiling — scheduled first and unconditionally, so it fires even if
     // starting the animation below throws or its own callback never fires.
-    const hardStop = setTimeout(dismiss, 3200);
+    const hardStop = setTimeout(dismiss, 1500);
 
     try {
       Animated.sequence([
-        Animated.delay(2000),
-        Animated.timing(fadeAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+        Animated.delay(600),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
       ]).start(dismiss);
     } catch (e) {
       console.warn('Splash fade animation failed to start:', e.message);
@@ -83,7 +83,7 @@ export default function App() {
         {showSplash && (
           <Animated.View style={[styles.splash, { opacity: fadeAnim }]}>
             <Text style={styles.splashLogo}>INTRO</Text>
-            <Text style={styles.splashTagline}>Dating for Introverts</Text>
+            <Text style={styles.splashTagline}>Connect Without Connecting</Text>
           </Animated.View>
         )}
       </GestureHandlerRootView>

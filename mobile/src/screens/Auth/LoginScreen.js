@@ -78,7 +78,7 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.logoContainer}>
           <Text style={styles.logo}>INTRO</Text>
-          <Text style={styles.tagline}>Dating for Introverts</Text>
+          <Text style={styles.tagline}>Connect Without Connecting</Text>
         </View>
 
         <View style={styles.form}>
