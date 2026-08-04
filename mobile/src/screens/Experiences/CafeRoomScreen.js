@@ -150,10 +150,10 @@ export default function CafeRoomScreen({ route, navigation }) {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtn}>‹ Leave</Text>
+          <Text style={styles.backBtn} numberOfLines={1}>‹ Leave</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>☕ {roomTitle || 'The Café'}</Text>
-        <View style={{ width: 50 }} />
+        <View style={{ width: 64 }} />
       </View>
 
       <View style={styles.participantsRow}>
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md, paddingTop: SPACING.xxl, paddingBottom: SPACING.md,
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
-  backBtn: { fontSize: 16, color: COLORS.primary, width: 50 },
+  backBtn: { fontSize: 16, color: COLORS.primary, width: 64 },
   headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.text },
   participantsRow: {
     paddingTop: SPACING.sm, paddingBottom: SPACING.xs,

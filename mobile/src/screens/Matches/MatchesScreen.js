@@ -22,6 +22,7 @@ export default function MatchesScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       loadMatches();
+      api.clearUnreadBadges();
     }, [])
   );
 

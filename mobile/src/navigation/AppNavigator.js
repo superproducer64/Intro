@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
+import * as api from '../services/api';
 
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
@@ -33,11 +34,18 @@ const Tab = createBottomTabNavigator();
 // width calculations; padding on already-centered flex content does not.
 const TAB_LABELS = { Experiences: 'Café' };
 
-function TabIcon({ label, focused }) {
+function TabIcon({ label, focused, badgeCount }) {
   const icons = { Discover: '🔍', Matches: '💜', Experiences: '☕', Profile: '👤' };
   return (
     <View style={styles.tabItem}>
-      <Text style={styles.tabIcon}>{icons[label]}</Text>
+      <View>
+        <Text style={styles.tabIcon}>{icons[label]}</Text>
+        {badgeCount > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text>
+          </View>
+        )}
+      </View>
       <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{TAB_LABELS[label] || label}</Text>
     </View>
   );
@@ -46,6 +54,9 @@ function TabIcon({ label, focused }) {
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, 12);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => api.addUnreadCountListener(setUnreadCount), []);
 
   return (
     <Tab.Navigator
@@ -53,7 +64,9 @@ function MainTabs() {
         headerShown: false,
         tabBarStyle: [styles.tabBar, { height: 56 + bottomInset, paddingBottom: bottomInset }],
         tabBarShowLabel: false,
-        tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
+        tabBarIcon: ({ focused }) => (
+          <TabIcon label={route.name} focused={focused} badgeCount={route.name === 'Matches' ? unreadCount : 0} />
+        ),
       })}
     >
       <Tab.Screen name="Discover" component={DiscoverScreen} />
@@ -113,6 +126,12 @@ const styles = StyleSheet.create({
   },
   tabItem: { alignItems: 'center', gap: 4 },
   tabIcon: { fontSize: 22 },
+  badge: {
+    position: 'absolute', top: -4, right: -10,
+    minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3,
+    backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
+  },
+  badgeText: { fontSize: 10, color: '#fff', fontWeight: 'bold' },
   tabLabel: { fontSize: 10, color: COLORS.textMuted },
   tabLabelActive: { color: COLORS.primary, fontWeight: '600' },
 });

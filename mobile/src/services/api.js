@@ -9,6 +9,9 @@ import { PROMPTS } from '../constants/theme';
 let currentSession = null;
 let messageListeners = [];
 let messagesChannel = null;
+let unreadCount = 0;
+let unreadListeners = [];
+let matchesChannels = [];
 
 // ==================== SESSION ====================
 export async function initAuth() {
@@ -33,8 +36,12 @@ export async function initAuth() {
     currentSession = newSession;
     if (newSession) {
       subscribeToMessages();
+      subscribeToMatchUpdates();
+      refreshUnreadCount();
     } else {
       unsubscribeFromMessages();
+      unsubscribeFromMatchUpdates();
+      setUnreadCount(0);
     }
   });
   return session;
@@ -671,6 +678,7 @@ export function subscribeToMessages() {
         };
         playMessageSound();
         messageListeners.forEach(fn => fn({ type: 'message', data: mapped }));
+        setUnreadCount(unreadCount + 1);
       }
     )
     .subscribe();
@@ -686,6 +694,88 @@ export function unsubscribeFromMessages() {
 export function addMessageListener(fn) {
   messageListeners.push(fn);
   return () => { messageListeners = messageListeners.filter(l => l !== fn); };
+}
+
+// ==================== UNREAD BADGE (Matches tab) ====================
+// Combined count of unread messages + unseen matches. Persists until the
+// Matches tab is opened (clearUnreadBadges), not per-message/per-chat.
+function setUnreadCount(n) {
+  unreadCount = n;
+  unreadListeners.forEach((fn) => fn(unreadCount));
+}
+
+export function addUnreadCountListener(fn) {
+  unreadListeners.push(fn);
+  fn(unreadCount);
+  return () => { unreadListeners = unreadListeners.filter((l) => l !== fn); };
+}
+
+export async function getUnreadCounts() {
+  const user = getUser();
+  if (!user) return { messages: 0, matches: 0 };
+
+  const [{ count: messages, error: messagesError }, { count: matches, error: matchesError }] = await Promise.all([
+    supabase.from('messages').select('id', { count: 'exact', head: true })
+      .eq('receiver_id', user.id).is('read_at', null),
+    supabase.from('matches').select('id', { count: 'exact', head: true })
+      .or(
+        `and(user1_id.eq.${user.id},seen_by_user1.eq.false,hidden_by_user1.eq.false),` +
+        `and(user2_id.eq.${user.id},seen_by_user2.eq.false,hidden_by_user2.eq.false)`
+      ),
+  ]);
+  if (messagesError) throw new Error(messagesError.message);
+  if (matchesError) throw new Error(matchesError.message);
+
+  return { messages: messages ?? 0, matches: matches ?? 0 };
+}
+
+export async function refreshUnreadCount() {
+  try {
+    const { messages, matches } = await getUnreadCounts();
+    setUnreadCount(messages + matches);
+  } catch (e) {
+    console.error('Refresh unread count error:', e);
+  }
+}
+
+// Full clear, fired when the Matches tab is opened — not per-conversation.
+export async function clearUnreadBadges() {
+  const user = getUser();
+  if (!user) return;
+
+  try {
+    await Promise.all([
+      supabase.from('messages').update({ read_at: new Date().toISOString() })
+        .eq('receiver_id', user.id).is('read_at', null),
+      supabase.from('matches').update({ seen_by_user1: true })
+        .eq('user1_id', user.id).eq('seen_by_user1', false),
+      supabase.from('matches').update({ seen_by_user2: true })
+        .eq('user2_id', user.id).eq('seen_by_user2', false),
+    ]);
+    setUnreadCount(0);
+  } catch (e) {
+    console.error('Clear unread badges error:', e);
+  }
+}
+
+export function subscribeToMatchUpdates() {
+  const user = getUser();
+  if (!user || matchesChannels.length > 0) return;
+
+  const bump = () => setUnreadCount(unreadCount + 1);
+  matchesChannels = [
+    supabase.channel(`matches:user1:${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches', filter: `user1_id=eq.${user.id}` }, bump)
+      .subscribe(),
+    supabase.channel(`matches:user2:${user.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches', filter: `user2_id=eq.${user.id}` }, bump)
+      .subscribe(),
+  ];
+}
+
+export function unsubscribeFromMatchUpdates() {
+  matchesChannels.forEach((ch) => supabase.removeChannel(ch));
+  matchesChannels = [];
 }
 
 export async function savePrompts(prompts) {

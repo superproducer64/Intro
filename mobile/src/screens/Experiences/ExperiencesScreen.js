@@ -1,9 +1,15 @@
 // src/screens/Experiences/ExperiencesScreen.js
 import React, { useState, useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as api from '../../services/api';
 import { COLORS } from '../../constants/theme';
+
+const COMING_SOON = [
+  { key: 'reading', icon: '📖', title: 'Reading' },
+  { key: 'games', icon: '🎲', title: 'Games' },
+  { key: 'movies', icon: '🎬', title: 'Movies' },
+];
 
 const ExperiencesScreen = ({ navigation }) => {
   const [room, setRoom] = useState(null);
@@ -52,7 +58,10 @@ const ExperiencesScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.bg, padding: 20, paddingTop: 60 }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      contentContainerStyle={{ padding: 20, paddingTop: 60 }}
+    >
       <Text style={{ fontSize: 32, fontWeight: '300', color: COLORS.text, marginBottom: 8 }}>Café</Text>
       <Text style={{ fontSize: 18, color: COLORS.textSecondary, marginBottom: 30 }}>
         A quiet hangout room — drop in, see who's there, say hi
@@ -68,7 +77,18 @@ const ExperiencesScreen = ({ navigation }) => {
           {count === 0 ? 'Nobody here yet — be the first' : `${count} ${count === 1 ? 'person' : 'people'} here now`}
         </Text>
       </Pressable>
-    </View>
+
+      {COMING_SOON.map((item) => (
+        <View
+          key={item.key}
+          style={{ backgroundColor: COLORS.bgCard, borderRadius: 20, padding: 20, marginTop: 16, opacity: 0.5 }}
+        >
+          <Text style={{ fontSize: 28 }}>{item.icon}</Text>
+          <Text style={{ fontSize: 22, color: COLORS.text, marginTop: 8 }}>{item.title}</Text>
+          <Text style={{ color: COLORS.textSecondary, marginTop: 4 }}>Coming soon</Text>
+        </View>
+      ))}
+    </ScrollView>
   );
 };
 

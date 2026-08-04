@@ -22,6 +22,8 @@ export default function App() {
         if (session) {
           setInitialRoute('Main');
           api.subscribeToMessages();
+          api.subscribeToMatchUpdates();
+          api.refreshUnreadCount();
         }
       } catch (e) {
         console.warn('initAuth failed, proceeding as logged out:', e.message);
