@@ -1,6 +1,0 @@
-## 6. Stack Consistency
-
-- **File/Directory:** `Intro/`, `app/` (TypeScript) vs. `server.js` + root `*.js` + `mobile/` (JavaScript)
-- **Description:** The only TypeScript in the repo lives in the two trees Task 1 identified as dead scaffold (plus the Supabase edge function at `supabase/functions/create-video-call/index.ts`, which is conventionally TypeScript and not part of this inconsistency). A repo-wide search for `*.ts`/`*.tsx` files outside `Intro/`, `app/`, and `supabase/` returned no results — confirming there is no other TypeScript anywhere in the active codebase. Task 1 recommends removing both `Intro/` and `app/` entirely as dead scaffold, so this finding resolves itself once that removal happens rather than being a separate open question. There is no live mixed-stack problem to solve: the active codebase (backend `server.js` + root `*.js`, and `mobile/`) is consistently JavaScript.
-- **Tag:** dead-code
-- **Recommendation:** No action needed beyond Task 1's dead-code removal — resolves this automatically. If any part of `Intro/` or `app/` is ever kept instead of removed, the TS-vs-JS split becomes a decision to make explicitly (e.g. migrate `mobile/` to TypeScript, or port the retained piece back to JS) rather than something to leave ambiguous.
