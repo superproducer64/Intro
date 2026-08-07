@@ -14,7 +14,7 @@ fda0834 2026-07-02 Bite 3: matches fetch fixed (real profiles in swipe deck)
 2ce3439 2026-07-02 Preview-B restored + CSP button rewire (Bites 1-2)
 06a0a45 2026-06-18 Lock diagnostic web page + stop leaking emails in match feed
 ```
-All five of the most recent `public/` commits (verified with `git log --oneline -- public/preview-b/`) touch `public/preview-b/` specifically, except `06a0a45`, which touches the root `public/index.html`. For comparison, `mobile/` has commits through 2026-08-06 (the day before this audit), so the web frontend as a whole has been quiet for roughly five weeks relative to mobile, but `public/preview-b/` was the subject of a coherent, apparently-completed five-commit "Bites 1-5" restoration effort, not abandonment mid-stream.
+All five of the most recent `public/` commits (verified with `git log --oneline -- public/preview-b/`) touch `public/preview-b/` specifically, except `06a0a45`, which touches the root `public/index.html`. For comparison, the last commit touching `mobile/` is `fb25d54` on 2026-08-03 (`git log --oneline -- mobile/`; the repo's newer 2026-08-06/07 commits are audit-planning commits that don't touch `mobile/`), so the web frontend as a whole has been quiet for roughly a month (31 days, 2026-07-03 to 2026-08-03) relative to mobile, but `public/preview-b/` was the subject of a coherent, apparently-completed five-commit "Bites 1-5" restoration effort, not abandonment mid-stream.
 
 **`server.js:20`:** `app.use(express.static('public'));` — confirms `public/` (including `public/preview-b/`) is actively served, not dead.
 
