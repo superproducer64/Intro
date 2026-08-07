@@ -1,0 +1,51 @@
+## 3. Backend Structure
+
+Scope: `server.js`, `auth.js`, `db.js`, `match.js`, `message.js`, `middleware.js`, `safety.js`, `reports.js`, `cafe.js`, `cron.js`, `websocket.js`, `check-stranded.js`, `migrate.js`, `admin.js`, `profile.js` (all at repo root).
+
+### Line counts (`wc -l`, sorted ascending)
+
+| File | Lines |
+|---|---|
+| middleware.js | 31 |
+| server.js | 45 |
+| message.js | 46 |
+| check-stranded.js | 49 |
+| cafe.js | 55 |
+| reports.js | 56 |
+| migrate.js | 68 |
+| admin.js | 83 |
+| websocket.js | 89 |
+| cron.js | 91 |
+| profile.js | 108 |
+| safety.js | 128 |
+| match.js | 147 |
+| auth.js | 185 |
+| db.js | 195 |
+
+No file is dramatically oversized; `db.js` (195) and `auth.js` (185) are the largest, and both are addressed below. `server.js` at 45 lines is the entry point and is deliberately thin.
+
+### Files with no issues found
+
+- **`server.js`** (45 lines) — pure composition root: applies `helmet`/`cors`/`express.json`/rate-limiting, mounts each route module under `/api/*` (`auth.js`, `profile.js`, `match.js`, `safety.js`, `message.js`, `admin.js`, `reports.js`, `cafe.js`), calls `initDB()`, and starts `websocket.js`/`cron.js`. It defines no route handlers of its own and contains no SQL (verified via `grep -n "^app\.\(get\|post\|put\|delete\)"` and `grep -n "SELECT\|INSERT\|UPDATE\|DELETE FROM" server.js`, both empty except the trivial `app.get('/health', ...)` at line 34). No finding.
+- **`migrate.js`** (68 lines) — standalone destructive-migration script (`node migrate.js`). It drops tables, then correctly reuses `initDB()` from `db.js` (line 7, called at line 31) rather than re-implementing schema creation, and seeds demo data. No finding.
+
+### Findings
+
+| File/Directory | Description | Tag | Recommendation |
+|---|---|---|---|
+| `db.js` | 195 lines, the largest file in the set. It conflates four distinct responsibilities in one module: (1) the `pg` `Pool` instance (lines 4-6), (2) in-memory *runtime request/session state* that has nothing to do with persistent storage — `adminTokens` (Set, line 8), `connectedClients` (Map, line 9), `userTokens` (Map, line 10) — used by `middleware.js`, `admin.js`, and `websocket.js`, (3) a query helper, `buildUserShape` (lines 12-32), and (4) the full schema DDL inside `initDB()` (lines 34-186, ~153 of the file's 195 lines), including several `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements (lines 54-59, 92) that re-run on every boot as an ad hoc migration mechanism, duplicating what `migrate.js` is meant to do. | restructure | Split `db.js` into a thin `pool`/connection module, a separate small module (e.g. `state.js`) for the in-memory `adminTokens`/`userTokens`/`connectedClients` maps, and move schema definition into versioned migration files (or at least isolate the `ALTER TABLE` boot-time patches from the initial `CREATE TABLE` calls) so schema changes don't live only as boot-time side effects. |
+| `auth.js`, `match.js` | `auth.js` (185 lines) and `match.js` (147 lines, the two largest route modules) mix HTTP routing and raw SQL data access directly inside handlers with no repository/service layer. `auth.js` has 12 inline `pool.query(...)` calls across its three routes (register/login/apple) at lines 34, 42, 50, 57, 66, 85, 102, 134, 139, 163, 169, 175. `match.js` has 9 inline `pool.query(...)` calls across `/profiles`, `/like`, `/pass`, `/matches` at lines 14-25 (dynamic string-built query), 59, 70, 75, 84, 87, 106, 118-129. Verified via `grep -n "^router\."` and `grep -n "SELECT\|INSERT\|UPDATE\|DELETE FROM"` on both files. | restructure | Extract the user/session/like/match queries into named functions in `db.js` (e.g. `createUser()`, `findUserByEmail()`, `createSession()`, `recordLike()`, `getMatchesForUser()`) so route handlers orchestrate rather than embed SQL strings; this also removes the risk of subtly different copies of the same query drifting apart (see the `admin.js`/`check-stranded.js` and `middleware.js`/`websocket.js` duplication findings below, which are instances of exactly that). |
+| `message.js`, `profile.js`, `safety.js`, `cafe.js`, `admin.js`, `reports.js` | Same routing+raw-SQL pattern as `auth.js`/`match.js` is present at smaller scale in every other route module (e.g. `profile.js` lines 33, 44, 53, 59, 61, 78, 93, 96; `cafe.js` lines 11-17, 27-30; `admin.js` lines 26, 35, 45, 47-50, 60-64, 73-77). Each file is small and internally cohesive, so this is a repo-wide architectural convention rather than a per-file defect. | restructure | Not urgent to change file-by-file given their size, but if the `auth.js`/`match.js` extraction above is done, apply the same `db.js` query-function pattern here for consistency rather than leaving two conventions (raw SQL in small files, extracted functions in large ones). |
+| `match.js:138` | Inside the `/matches` handler, `match.js` resolves a user's profile shape with `await require('./db').buildUserShape(row.user_id)` (line 138) — an inline `require('./db')` call inside a `.map()` callback — instead of using a top-level destructured import. Every other file that uses `buildUserShape` (`auth.js:6`, `profile.js:8`) imports it once at the top via `const { pool, buildUserShape } = require('./db');`. `match.js`'s own top-level import (line 5) only pulls in `{ pool }`, so this is the one inconsistent case in the codebase. | stylistic | Add `buildUserShape` to the existing top-of-file `require('./db')` destructure in `match.js` (line 5) and drop the inline `require('./db')` at line 138. |
+| `admin.js` (lines 58-69, 71-82) + `check-stranded.js` (lines 14-49) | `admin.js`'s `GET /stranded-users` and `DELETE /stranded-users` routes contain the identical "find/delete users with no matching profiles row" SQL (`SELECT id, name, email, created_at FROM users WHERE id NOT IN (SELECT DISTINCT user_id FROM profiles WHERE user_id IS NOT NULL) ORDER BY created_at DESC` and the corresponding `DELETE FROM users WHERE ... RETURNING id, name, email`) as the standalone script `check-stranded.js`, which exists specifically to do the same query/delete via `node check-stranded.js [--delete]`, bypassing the HTTP/auth layer entirely (per its own header comment, lines 1-3). The two implementations are separate copies of the same two queries. | consolidate | Extract the "find stranded users" and "delete stranded users" queries into two functions in `db.js` (or a small `stranded.js` helper) and have both `admin.js`'s routes and `check-stranded.js`'s CLI script call the same functions, so the logic — and any future WHERE-clause change — only needs to be made once. |
+| `middleware.js` (lines 4-22, esp. 10-18) + `websocket.js` (lines 14-43, esp. 25-33) | `middleware.js`'s `verifyUser` and `websocket.js`'s inline `auth`-message handler both implement the same token-resolution logic independently: check the `userTokens` in-memory Map first, and on a miss fall back to `SELECT user_id FROM sessions WHERE token = $1` and populate the cache. `middleware.js:10-18` and `websocket.js:25-33` are functionally identical (differing only in how they report failure — HTTP 401 vs. a `ws.send` message). | consolidate | Factor the shared "resolve `userId` from a bearer token, using the `userTokens` cache with a `sessions` table fallback" logic into one exported function in `middleware.js` or `db.js` (e.g. `resolveUserIdFromToken(token)`), and have both `verifyUser` and `websocket.js`'s auth-message handler call it. |
+| `safety.js` (lines 10-20) + `cron.js` (lines 9-19) | Both files define an identical `createTransporter()` function that builds the same `nodemailer.createTransport({...})` config from `EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_SECURE`/`EMAIL_USER`/`EMAIL_PASS` env vars, copied verbatim. | consolidate | Move `createTransporter()` (and optionally the "skip if `EMAIL_USER`/`EMAIL_PASS` unset" guard used in both `safety.js:23-26` and `cron.js:22-25`) into a small shared `mailer.js` module and have both files import it. |
+| `safety.js` + `reports.js` | Checked for overlap per the audit brief's suggestion. These do *not* duplicate logic: `safety.js` is user-facing (`verifyUser`-gated `POST /report` and `POST /block`, which insert into the `reports`/`blocks` tables and send a moderation email), while `reports.js` is admin-facing (`verifyAdmin`-gated `GET /` to list reports with joins, and `PATCH /:id` to update a report's status). Both operate on the same `reports` table but from opposite sides (write vs. admin read/manage), mirroring the `auth.js`/`admin.js` split for users. The only friction is discoverability: a contributor looking for "where reports are handled" has to know to check both `safety.js` and `reports.js`. | stylistic | No functional change needed; if reorganizing, consider co-locating them (e.g. under a `reports/` subdirectory as `reports/user.js` + `reports/admin.js`) purely for discoverability — not a priority. |
+
+### Naming/export consistency (Step 3)
+
+All eight route modules (`auth.js`, `match.js`, `message.js`, `safety.js`, `reports.js`, `cafe.js`, `admin.js`, `profile.js`) follow one consistent pattern: `const router = express.Router();` near the top, route registration via `router.get/post/put/patch/delete(...)`, and `module.exports = router;` at the bottom (verified via `grep -n "module.exports"` across all 15 files). Route registration itself lives centrally in `server.js` (lines 25-32) via `app.use('/api/<name>', require('./<name>'))` — it is not spread across files.
+
+Non-route utility modules follow a second, equally consistent pattern: `middleware.js` and `db.js` export a named object (`module.exports = { verifyUser, verifyAdmin };` / `module.exports = { pool, adminTokens, connectedClients, userTokens, buildUserShape, initDB };`), and `cron.js` exports `{ checkStaleReports }`. `websocket.js` exports a factory function (`module.exports = (wss) => {...}`) rather than an object — a justified exception, since it needs the `wss` server instance injected at call time from `server.js:40`, not a naming inconsistency. `check-stranded.js` and `migrate.js` export nothing, consistent with being standalone CLI scripts run via `node <file>.js` rather than `require`d.
+
+Overall, naming/export conventions are consistent across the flat file list; the one deviation found is the `match.js:138` inline `require('./db')` noted above.
