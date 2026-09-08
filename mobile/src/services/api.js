@@ -86,16 +86,17 @@ export async function register({ name, email, password, age, bio, personalityTyp
   if (lookingFor) profileUpdates.looking_for = lookingFor;
   if (location) profileUpdates.location = location;
 
-  try {
-    if (Object.keys(profileUpdates).length > 0) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', data.user.id);
-      if (profileError) console.warn('Profile update after signup failed:', profileError.message);
+  if (Object.keys(profileUpdates).length > 0) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update(profileUpdates)
+      .eq('id', data.user.id);
+    if (profileError) {
+      if (profileError.message.includes('profiles_birthdate_min_age')) {
+        throw new Error('You must be at least 18 years old to create an account.');
+      }
+      throw new Error(profileError.message);
     }
-  } catch (profileEx) {
-    console.warn('Profile update threw:', profileEx.message);
   }
 
   try {
