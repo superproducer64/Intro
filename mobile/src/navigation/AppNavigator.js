@@ -32,7 +32,7 @@ const Tab = createBottomTabNavigator();
 // (~55-65pt vs ~19-24pt at fontSize 10), so shortening it is what actually
 // creates visible breathing room between tabs — see AppNavigator tab-bar
 // width calculations; padding on already-centered flex content does not.
-const TAB_LABELS = { Experiences: 'Café' };
+const TAB_LABELS = { Discover: 'Close', Matches: 'Match', Experiences: 'Café', Profile: 'Me' };
 
 function TabIcon({ label, focused, badgeCount }) {
   const icons = { Discover: '🔍', Matches: '💜', Experiences: '☕', Profile: '👤' };
@@ -46,7 +46,14 @@ function TabIcon({ label, focused, badgeCount }) {
           </View>
         )}
       </View>
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>{TAB_LABELS[label] || label}</Text>
+      <Text
+        style={[styles.tabLabel, focused && styles.tabLabelActive]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
+        {TAB_LABELS[label] || label}
+      </Text>
     </View>
   );
 }

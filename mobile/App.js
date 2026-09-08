@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -9,6 +9,10 @@ import AppNavigator from './src/navigation/AppNavigator';
 import * as api from './src/services/api';
 
 export default function App() {
+  return <AppMain />;
+}
+
+function AppMain() {
   const [ready, setReady] = useState(false);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [showSplash, setShowSplash] = useState(true);
@@ -54,7 +58,7 @@ export default function App() {
 
     try {
       Animated.sequence([
-        Animated.delay(600),
+        Animated.delay(1000),
         Animated.timing(fadeAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
       ]).start(dismiss);
     } catch (e) {
@@ -93,10 +97,21 @@ export default function App() {
   );
 }
 
+// Explicit literal box instead of StyleSheet.absoluteFillObject's position:
+// 'absolute' + top/left/right/bottom:0 stretch — the latter was confirmed
+// (via on-device onLayout logging) to collapse to content height and
+// bottom-anchor instead of filling the screen. Literal width/height/top/left
+// don't depend on that stretch behavior at all.
+const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
   splash: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
     backgroundColor: COLORS.bg,
     justifyContent: 'center',
     alignItems: 'center',
