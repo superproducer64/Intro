@@ -83,11 +83,17 @@ export default function TermsOfServiceScreen({ navigation }) {
 
       <Text style={styles.sectionTitle}>Contact Us</Text>
       <Text style={styles.body}>
-        For support, abuse reports, or questions about these Terms:
+        For support or general questions, contact{' '}
+        <Text style={styles.emailLink} onPress={() => Linking.openURL('mailto:support@intro.bgpstudios.com')}>
+          support@intro.bgpstudios.com
+        </Text>.
       </Text>
-      <TouchableOpacity onPress={() => Linking.openURL('mailto:privacy@bgpstudios.com')}>
-        <Text style={styles.emailLink}>privacy@bgpstudios.com</Text>
-      </TouchableOpacity>
+      <Text style={styles.body}>
+        To report abuse or ask about these Terms, contact{' '}
+        <Text style={styles.emailLink} onPress={() => Linking.openURL('mailto:privacy@intro.bgpstudios.com')}>
+          privacy@intro.bgpstudios.com
+        </Text>.
+      </Text>
 
       <Text style={styles.footer}>© 2026 Intro / BGP Studios. All rights reserved.</Text>
     </ScrollView>

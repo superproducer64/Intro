@@ -34,7 +34,7 @@ export default function PrivacyPolicyScreen({ navigation }) {
       <Text style={styles.body}>We retain your data only for as long as your account is active. When you delete your account, all associated data is permanently removed.</Text>
 
       <Text style={styles.sectionTitle}>7. Contact</Text>
-      <Text style={styles.body}>For privacy-related questions, contact us at privacy@bgpstudios.com.</Text>
+      <Text style={styles.body}>For privacy-related questions, contact us at privacy@intro.bgpstudios.com.</Text>
     </ScrollView>
   );
 }

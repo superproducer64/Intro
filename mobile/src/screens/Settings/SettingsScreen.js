@@ -80,7 +80,7 @@ export default function SettingsScreen({ navigation }) {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Support</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL('mailto:privacy@bgpstudios.com')}>
+        <TouchableOpacity style={styles.menuItem} onPress={() => Linking.openURL('mailto:support@intro.bgpstudios.com')}>
           <Text style={styles.menuText}>Contact Support</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
