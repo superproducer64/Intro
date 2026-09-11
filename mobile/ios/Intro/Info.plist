@@ -70,10 +70,6 @@
 	<string>Intro needs photo library access to set your profile photo.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>voip</string>
-	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>SplashScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
