@@ -11,6 +11,11 @@ const COMING_SOON = [
   { key: 'movies', icon: '🎬', title: 'Movies' },
 ];
 
+// Hidden until these are actually built — a greyed-out "Coming soon" tile
+// reads as shipped incompleteness to App Review (Guideline 2.1.0). Flip this
+// back on once at least one of them ships.
+const SHOW_COMING_SOON = false;
+
 const ExperiencesScreen = ({ navigation }) => {
   const [room, setRoom] = useState(null);
   const [count, setCount] = useState(0);
@@ -78,7 +83,7 @@ const ExperiencesScreen = ({ navigation }) => {
         </Text>
       </Pressable>
 
-      {COMING_SOON.map((item) => (
+      {SHOW_COMING_SOON && COMING_SOON.map((item) => (
         <View
           key={item.key}
           style={{ backgroundColor: COLORS.bgCard, borderRadius: 20, padding: 20, marginTop: 16, opacity: 0.5 }}
