@@ -24,10 +24,18 @@ function AppMain() {
       try {
         const session = await api.initAuth();
         if (session) {
-          setInitialRoute('Main');
-          api.subscribeToMessages();
-          api.subscribeToMatchUpdates();
-          api.refreshUnreadCount();
+          // A restored session only proves the user is signed in, not that
+          // they've cleared the adult-eligibility / required-profile gate —
+          // that can be pending after an interrupted registration, Apple
+          // sign-in, or email confirmation. Route incomplete profiles to
+          // ProfileSetup instead of Main.
+          const incomplete = await api.needsProfileSetup(session.user.id);
+          setInitialRoute(incomplete ? 'ProfileSetup' : 'Main');
+          if (!incomplete) {
+            api.subscribeToMessages();
+            api.subscribeToMatchUpdates();
+            api.refreshUnreadCount();
+          }
         }
       } catch (e) {
         console.warn('initAuth failed, proceeding as logged out:', e.message);

@@ -35,8 +35,8 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      await api.login(email.trim().toLowerCase(), password);
-      navigation.replace('Main');
+      const data = await api.login(email.trim().toLowerCase(), password);
+      navigation.replace(data.needsProfileSetup ? 'ProfileSetup' : 'Main');
     } catch (e) {
       Alert.alert('Login Failed', e.message);
     } finally {

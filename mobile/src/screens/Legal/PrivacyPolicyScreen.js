@@ -13,16 +13,16 @@ export default function PrivacyPolicyScreen({ navigation }) {
         <View style={{ width: 60 }} />
       </View>
 
-      <Text style={styles.updated}>Last updated: March 1, 2026</Text>
+      <Text style={styles.updated}>Last updated: September 15, 2026</Text>
 
       <Text style={styles.sectionTitle}>1. Information We Collect</Text>
-      <Text style={styles.body}>We collect information you provide directly, including your name, email address, age, location, bio, interests, and profile prompts. We also collect messages you send through the app.</Text>
+      <Text style={styles.body}>We collect information you provide directly, including your name, email address, age, location, bio, interests, profile prompts, and the photos and videos you upload to your profile. We also collect messages you send through the app and metadata about video calls between matches (such as when a call happened and its status), though we do not record or store the audio or video content of your calls.</Text>
 
       <Text style={styles.sectionTitle}>2. How We Use Your Information</Text>
-      <Text style={styles.body}>We use your information to provide and improve the Intro dating service, including matching you with compatible users, enabling messaging, and personalizing your experience.</Text>
+      <Text style={styles.body}>We use your information to provide and improve the Intro dating service, including matching you with compatible users, enabling messaging and video calls, and personalizing your experience.</Text>
 
       <Text style={styles.sectionTitle}>3. Data Sharing</Text>
-      <Text style={styles.body}>We do not sell your personal information. Your profile information is visible to other users of the app. We may share data with service providers who help operate our platform.</Text>
+      <Text style={styles.body}>We do not sell your personal information. Your profile information is visible to other users of the app. We use Supabase to host our database and store your photos and videos, and Daily.co to power in-app video calls between matches; both process your data solely to provide these features on our behalf.</Text>
 
       <Text style={styles.sectionTitle}>4. Data Security</Text>
       <Text style={styles.body}>We implement industry-standard security measures to protect your data, including encrypted passwords and secure data transmission.</Text>

@@ -35,9 +35,24 @@ export async function initAuth() {
   supabase.auth.onAuthStateChange((_event, newSession) => {
     currentSession = newSession;
     if (newSession) {
-      subscribeToMessages();
-      subscribeToMatchUpdates();
-      refreshUnreadCount();
+      // Gate real-time subscriptions on completed adult eligibility, not just
+      // "a session exists" — a session can exist for a user who has not yet
+      // passed ProfileSetup (interrupted onboarding, restored session, etc.),
+      // and subscribing here would surface matches/messages before eligibility
+      // is established. Fail closed: an eligibility-check error skips the
+      // subscription rather than granting it.
+      needsProfileSetup(newSession.user.id)
+        .then((incomplete) => {
+          if (currentSession !== newSession) return; // superseded by a later event
+          if (!incomplete) {
+            subscribeToMessages();
+            subscribeToMatchUpdates();
+            refreshUnreadCount();
+          }
+        })
+        .catch((e) => {
+          console.warn('onAuthStateChange: eligibility check failed, not subscribing:', e.message);
+        });
     } else {
       unsubscribeFromMessages();
       unsubscribeFromMatchUpdates();
@@ -49,6 +64,32 @@ export async function initAuth() {
 
 export function getSession() { return currentSession; }
 export function getUser() { return currentSession?.user || null; }
+
+// Single source of truth for "has this user cleared the adult-eligibility /
+// required-profile gate" — a birthdate is only ever written by register()
+// (validated against the profiles_birthdate_min_age DB constraint) or
+// ProfileSetupScreen's info step (client-validated 18-120), so its absence
+// means the user has not completed that gate yet. Used by every entry point
+// that can hand a user a session: fresh login, restored session, and
+// Apple sign-in. Fails CLOSED (treats an unreadable profile as incomplete)
+// so a transient error can't route someone around the gate.
+export async function needsProfileSetup(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('birthdate')
+      .eq('id', userId)
+      .single();
+    if (error) {
+      console.warn('needsProfileSetup: profile lookup failed, defaulting to incomplete:', error.message);
+      return true;
+    }
+    return !data?.birthdate;
+  } catch (e) {
+    console.warn('needsProfileSetup threw, defaulting to incomplete:', e.message);
+    return true;
+  }
+}
 
 function ageToBirthdate(age) {
   const year = new Date().getFullYear() - age;
@@ -66,19 +107,12 @@ function birthdateToAge(birthdate) {
 }
 
 // ==================== AUTH ====================
-export async function register({ name, email, password, age, bio, personalityType, lookingFor, interests, location }) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { name } },
-  });
-  if (error) throw new Error(error.message);
-
-  if (!data.session) {
-    // Email confirmation is required before a session (and RLS-protected writes) is available.
-    return { ...data, needsEmailConfirmation: true };
-  }
-
+// Shared by register()'s instant-session path and login()'s replay of a
+// pending registration (see below) — writes the basic-info fields collected
+// on the registration form and inserts interests. Throws the friendly
+// under-18 message when the DB's profiles_birthdate_min_age constraint
+// rejects the birthdate.
+async function applyRegistrationProfile(userId, { age, bio, personalityType, lookingFor, interests, location } = {}) {
   const profileUpdates = {};
   if (age != null) profileUpdates.birthdate = ageToBirthdate(age);
   if (bio) profileUpdates.bio = bio;
@@ -90,7 +124,7 @@ export async function register({ name, email, password, age, bio, personalityTyp
     const { error: profileError } = await supabase
       .from('profiles')
       .update(profileUpdates)
-      .eq('id', data.user.id);
+      .eq('id', userId);
     if (profileError) {
       if (profileError.message.includes('profiles_birthdate_min_age')) {
         throw new Error('You must be at least 18 years old to create an account.');
@@ -101,13 +135,37 @@ export async function register({ name, email, password, age, bio, personalityTyp
 
   try {
     if (interests && interests.length > 0) {
-      const interestRows = interests.map(interest => ({ user_id: data.user.id, interest }));
+      const interestRows = interests.map(interest => ({ user_id: userId, interest }));
       const { error: interestsError } = await supabase.from('interests').insert(interestRows);
       if (interestsError) console.warn('Interests insert failed:', interestsError.message);
     }
   } catch (interestEx) {
     console.warn('Interests insert threw:', interestEx.message);
   }
+}
+
+export async function register({ name, email, password, age, bio, personalityType, lookingFor, interests, location }) {
+  // Stashed as auth user_metadata so it survives the email-confirmation
+  // round trip below — signUp() only returns a session immediately when
+  // confirmation is off; otherwise everything collected on this form used to
+  // just get thrown away, and the user had to re-enter it all on
+  // ProfileSetup after confirming. login() replays this the first time it
+  // sees an account with no session and no completed profile.
+  const pendingProfile = { age, bio, personalityType, lookingFor, interests, location };
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name, pending_profile: pendingProfile } },
+  });
+  if (error) throw new Error(error.message);
+
+  if (!data.session) {
+    // Email confirmation is required before a session (and RLS-protected writes) is available.
+    return { ...data, needsEmailConfirmation: true };
+  }
+
+  await applyRegistrationProfile(data.user.id, pendingProfile);
 
   return data;
 }
@@ -115,7 +173,29 @@ export async function register({ name, email, password, age, bio, personalityTyp
 export async function login(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
-  return data;
+
+  let needsSetup = await needsProfileSetup(data.user.id);
+
+  // Covers the register() path where email confirmation was required: that
+  // path returns before any profile fields (including birthdate) are ever
+  // written, so this is the first point where we both know the account is
+  // confirmed and have write access. Replay whatever was collected on the
+  // registration form (stashed in user_metadata.pending_profile) exactly
+  // once, then clear it so a later login on another device doesn't re-run it.
+  if (needsSetup && data.user.user_metadata?.pending_profile) {
+    try {
+      await applyRegistrationProfile(data.user.id, data.user.user_metadata.pending_profile);
+      await supabase.auth.updateUser({ data: { pending_profile: null } });
+      needsSetup = await needsProfileSetup(data.user.id);
+    } catch (e) {
+      // Leave pending_profile in place and fall through to needsSetup=true —
+      // ProfileSetupScreen is still a safe manual fallback (e.g. if the
+      // stashed age no longer clears profiles_birthdate_min_age somehow).
+      console.warn('login: failed to replay pending registration profile:', e.message);
+    }
+  }
+
+  return { ...data, needsProfileSetup: needsSetup };
 }
 
 export async function logout() {
@@ -140,9 +220,41 @@ export async function appleSignIn(identityToken, name, email) {
   return { ...data, isNewUser: !profile?.birthdate };
 }
 
+// delete_user() (SECURITY DEFINER) removes every DB row via cascades off
+// profiles, but it's plain SQL with no reach into Storage — the actual photo
+// and video files live there, not in a DB row, so the buckets were never
+// actually cleaned up on deletion despite the privacy policy's "permanently
+// erased" claim. The "delete own files" storage policies already let a user
+// remove their own objects directly, so no service-role function is needed —
+// this just has to run BEFORE delete_user(), while the session (and those
+// policies) still apply.
+async function removeAllUserStorageFiles(userId) {
+  for (const bucket of ['profile-photos', 'profile-videos']) {
+    try {
+      const { data: files, error: listError } = await supabase.storage.from(bucket).list(userId);
+      if (listError) {
+        console.warn(`deleteAccount: listing ${bucket} failed:`, listError.message);
+        continue;
+      }
+      if (files && files.length > 0) {
+        const paths = files.map((f) => `${userId}/${f.name}`);
+        const { error: removeError } = await supabase.storage.from(bucket).remove(paths);
+        if (removeError) console.warn(`deleteAccount: removing ${bucket} files failed:`, removeError.message);
+      }
+    } catch (e) {
+      console.warn(`deleteAccount: ${bucket} cleanup threw:`, e.message);
+    }
+  }
+}
+
 export async function deleteAccount() {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
+
+  // Best-effort and non-blocking: a storage hiccup shouldn't prevent the
+  // user from deleting their account, which is the more important guarantee.
+  await removeAllUserStorageFiles(user.id);
+
   const { error } = await supabase.rpc('delete_user');
   if (error) throw new Error(error.message);
   await logout();

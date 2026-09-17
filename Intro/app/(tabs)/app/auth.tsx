@@ -8,14 +8,24 @@ import { router } from 'expo-router';
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
+  const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!email || !password || (!isLogin && !name)) {
+    if (!email || !password || (!isLogin && (!name || !age))) {
       Alert.alert("Error", "Please fill all fields");
       return;
+    }
+
+    let ageNum: number | null = null;
+    if (!isLogin) {
+      ageNum = parseInt(age, 10);
+      if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
+        Alert.alert("Error", "You must be at least 18 years old to create an account.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -25,12 +35,12 @@ export default function AuthScreen() {
       if (isLogin) {
         response = await authAPI.login({ email, password });
       } else {
-        response = await authAPI.register({ 
-          name, 
-          email, 
-          password, 
-          age: 28, 
-          bio: "Looking for meaningful connections" 
+        response = await authAPI.register({
+          name,
+          email,
+          password,
+          age: ageNum,
+          bio: "Looking for meaningful connections"
         });
       }
 
@@ -62,6 +72,16 @@ export default function AuthScreen() {
             placeholder="Your name"
             value={name}
             onChangeText={setName}
+          />
+        )}
+
+        {!isLogin && (
+          <TextInput
+            className="bg-gray-100 rounded-2xl px-5 py-4 mb-4 text-lg"
+            placeholder="Age"
+            keyboardType="numeric"
+            value={age}
+            onChangeText={setAge}
           />
         )}
 

@@ -16,6 +16,13 @@ export default function ProfileSetupScreen({ navigation, route }) {
   const [bio, setBio] = useState('');
   const [lookingFor, setLookingFor] = useState('');
   const [savingInfo, setSavingInfo] = useState(false);
+  // True when the name is already known — either Sign in with Apple supplied
+  // it (route.params.prefillName, only present on that flow) or it's already
+  // on the profile row. Apple's Sign in with Apple guidelines require not
+  // asking the user to re-provide info Authentication Services already gave
+  // us, so in that case the name field below is shown read-only instead of
+  // as an editable, required input.
+  const [nameProvided, setNameProvided] = useState(false);
 
   const [selectedPrompts, setSelectedPrompts] = useState([
     { question: PROMPTS[0], answer: '' },
@@ -29,22 +36,26 @@ export default function ProfileSetupScreen({ navigation, route }) {
       try {
         const profile = await api.getProfile();
         if (profile?.age == null) {
-          setName(profile?.name || route.params?.prefillName || '');
+          const existingName = profile?.name || route.params?.prefillName || '';
+          setName(existingName);
+          setNameProvided(!!existingName.trim());
           setStep('info');
         } else {
           setStep('prompts');
         }
       } catch (e) {
         console.error('ProfileSetup: load profile error:', e);
-        setName(route.params?.prefillName || '');
+        const prefillName = route.params?.prefillName || '';
+        setName(prefillName);
+        setNameProvided(!!prefillName.trim());
         setStep('info');
       }
     })();
   }, []);
 
   const handleSaveInfo = async () => {
-    if (!name.trim() || !age) {
-      Alert.alert('Error', 'Please fill in your name and age');
+    if ((!nameProvided && !name.trim()) || !age) {
+      Alert.alert('Error', nameProvided ? 'Please fill in your age' : 'Please fill in your name and age');
       return;
     }
     const ageNum = parseInt(age, 10);
@@ -113,7 +124,14 @@ export default function ProfileSetupScreen({ navigation, route }) {
         <Text style={styles.title}>Tell Us About You</Text>
         <Text style={styles.subtitle}>This helps others get to know the real you.</Text>
 
-        <TextInput style={styles.input} placeholder="Your Name" placeholderTextColor={COLORS.textMuted} value={name} onChangeText={setName} />
+        {nameProvided ? (
+          <View style={styles.nameProvidedRow}>
+            <Text style={styles.nameProvidedLabel}>Name</Text>
+            <Text style={styles.nameProvidedValue}>{name}</Text>
+          </View>
+        ) : (
+          <TextInput style={styles.input} placeholder="Your Name" placeholderTextColor={COLORS.textMuted} value={name} onChangeText={setName} />
+        )}
         <TextInput style={styles.input} placeholder="Age" placeholderTextColor={COLORS.textMuted} value={age} onChangeText={setAge} keyboardType="numeric" />
         <TextInput style={styles.input} placeholder="Location (optional)" placeholderTextColor={COLORS.textMuted} value={location} onChangeText={setLocation} />
 
@@ -206,6 +224,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.sm },
   subtitle: { fontSize: 16, color: COLORS.textSecondary, marginBottom: SPACING.xl, lineHeight: 22 },
   label: { fontSize: 14, color: COLORS.textSecondary, marginTop: SPACING.sm, marginBottom: SPACING.xs },
+  nameProvidedRow: {
+    backgroundColor: COLORS.inputBg, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, marginBottom: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  nameProvidedLabel: { color: COLORS.textMuted, fontSize: 13 },
+  nameProvidedValue: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
   input: {
     backgroundColor: COLORS.inputBg, borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md, color: COLORS.text, fontSize: 16,
