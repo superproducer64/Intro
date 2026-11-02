@@ -12,12 +12,7 @@ import ProfileSetupScreen from '../screens/Profile/ProfileSetupScreen';
 import HomeScreen from '../screens/HomeScreen';
 import MatchesScreen from '../screens/Matches/MatchesScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
-// VideoCallScreen stubbed out — not Expo Go compatible (react-native-webrtc)
-const VideoCallScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-    <Text style={{ color: '#fff' }}>Video call requires dev build</Text>
-  </View>
-);
+import VideoCallScreen from '../screens/VideoCall/VideoCallScreen';
 import ExperiencesScreen from '../screens/Experiences/ExperiencesScreen';
 import CafeRoomScreen from '../screens/Experiences/CafeRoomScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
@@ -26,6 +21,11 @@ import SettingsScreen from '../screens/Settings/SettingsScreen';
 import PrivacyPolicyScreen from '../screens/Legal/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/Legal/TermsOfServiceScreen';
 import GuidelinesGate from '../components/GuidelinesGate';
+
+// pivot/circles — new screens
+import CircleScreen from '../screens/Circles/CircleScreen';
+import ExploreScreen from '../screens/Explore/ExploreScreen';
+import SessionScreen from '../screens/Sessions/SessionScreen';
 
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
@@ -84,6 +84,12 @@ function MainTabs() {
   );
 }
 
+/**
+ * AuthenticatedStack — wraps ALL post-login screens (tabs AND Chat/Settings)
+ * inside a single GuidelinesGate so there is no navigation path that
+ * bypasses community-guidelines acceptance, including direct navigations
+ * to Chat via deep-link or programmatic navigate().
+ */
 function AuthenticatedStack() {
   return (
     <GuidelinesGate>
@@ -96,6 +102,11 @@ function AuthenticatedStack() {
         <AuthStack.Screen name="Settings" component={SettingsScreen} />
         <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
         <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+
+        {/* pivot/circles — new screens */}
+        <AuthStack.Screen name="Circle" component={CircleScreen} />
+        <AuthStack.Screen name="Explore" component={ExploreScreen} />
+        <AuthStack.Screen name="Session" component={SessionScreen} />
       </AuthStack.Navigator>
     </GuidelinesGate>
   );
@@ -107,9 +118,12 @@ export default function AppNavigator({ initialRoute }) {
       initialRouteName={initialRoute}
       screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}
     >
+      {/* Unauthenticated screens — no GuidelinesGate needed */}
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+
+      {/* All authenticated screens — GuidelinesGate is enforced here */}
       <Stack.Screen name="Main" component={AuthenticatedStack} />
     </Stack.Navigator>
   );

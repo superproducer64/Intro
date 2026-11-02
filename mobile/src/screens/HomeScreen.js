@@ -10,11 +10,10 @@
  *   4. Today's Prompt card
  *   5. Caught Up state (end of feed, no infinite scroll)
  *
- * Data: currently wired to MOCK_DATA constants.
- * Search for "TODO: SUPABASE" to find every swap point.
+ * Data: wired to Supabase. All queries use the authenticated user's session.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,7 +23,10 @@ import {
   SafeAreaView,
   TextInput,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { supabase } from '../services/supabase';
 
 // ─── Brand tokens (matches Prototype D exactly) ───────────────────────────────
 const COLORS = {
@@ -42,38 +44,6 @@ const COLORS = {
   film:      '#2C4A7A',
   making:    '#7A4A2C',
   default:   '#AA2246',
-};
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-// TODO: SUPABASE — replace with real queries (see bottom of file for query shapes)
-
-const MOCK_USER = {
-  id:           'mock-user-1',
-  display_name: 'David',
-};
-
-const MOCK_SESSION = {
-  id:           'session-1',
-  circle_name:  'Page Turners',
-  title:        'Book talk: the one you couldn\'t put down',
-  host_prompt:  'Tell us about one moment in the book that made you stop reading for a second.',
-  scheduled_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2h from now
-  status:       'upcoming', // 'upcoming' | 'live' | 'ended'
-};
-
-const MOCK_CIRCLES = [
-  { id: 'c1', name: 'Page Turners',      topic_tag: 'books',    member_count: 31, cover_color: COLORS.books    },
-  { id: 'c2', name: 'Quiet Mornings',    topic_tag: 'mornings', member_count: 44, cover_color: COLORS.mornings },
-  { id: 'c3', name: 'Late Night Cinema', topic_tag: 'film',     member_count: 18, cover_color: COLORS.film     },
-  { id: 'c4', name: 'Makers',            topic_tag: 'making',   member_count: 27, cover_color: COLORS.making   },
-];
-
-const MOCK_PROMPT = {
-  id:             'prompt-1',
-  circle_name:    'Page Turners',
-  body:           'Which character would you actually want to have coffee with?',
-  response_count: 12,
-  user_responded: false,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -98,12 +68,10 @@ function getGreeting() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-/** Section label above a content block */
 function SectionLabel({ children }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
-/** The hero card for tonight's (or next) session */
 function SessionHeroCard({ session, onJoin, onInfo }) {
   const isLive = session.status === 'live';
 
@@ -144,11 +112,10 @@ function SessionHeroCard({ session, onJoin, onInfo }) {
   );
 }
 
-/** Single circle tile in the 2-col grid */
 function CircleTile({ circle, onPress }) {
   return (
     <TouchableOpacity
-      style={[styles.circleTile, { backgroundColor: circle.cover_color }]}
+      style={[styles.circleTile, { backgroundColor: circle.cover_color || COLORS.default }]}
       onPress={() => onPress(circle)}
       activeOpacity={0.85}
     >
@@ -160,7 +127,6 @@ function CircleTile({ circle, onPress }) {
   );
 }
 
-/** Dashed "Find a circle" tile */
 function FindCircleTile({ onPress }) {
   return (
     <TouchableOpacity style={[styles.circleTile, styles.findTile]} onPress={onPress} activeOpacity={0.7}>
@@ -169,9 +135,8 @@ function FindCircleTile({ onPress }) {
   );
 }
 
-/** Today's prompt card with inline reply composer */
-function PromptCard({ prompt, onSubmit }) {
-  const [answer, setAnswer]     = useState('');
+function PromptCard({ prompt, userId, onSubmit }) {
+  const [answer, setAnswer]       = useState('');
   const [submitted, setSubmitted] = useState(prompt.user_responded);
 
   const handleSubmit = useCallback(() => {
@@ -213,7 +178,6 @@ function PromptCard({ prompt, onSubmit }) {
   );
 }
 
-/** The end-of-feed "caught up" moment */
 function CaughtUpState() {
   return (
     <View style={styles.caughtUp}>
@@ -227,19 +191,217 @@ function CaughtUpState() {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen({ navigation }) {
-  // TODO: SUPABASE — replace these with useFocusEffect + supabase queries
-  const user    = MOCK_USER;
-  const session = MOCK_SESSION;   // null if no upcoming/live session
-  const circles = MOCK_CIRCLES;
-  const prompt  = MOCK_PROMPT;    // null if no active prompt today
+  const [userId, setUserId]         = useState(null);
+  const [displayName, setDisplayName] = useState('');
+  const [session, setSession]       = useState(null);   // next upcoming/live session
+  const [circles, setCircles]       = useState([]);
+  const [prompt, setPrompt]         = useState(null);   // today's active prompt
+  const [loading, setLoading]       = useState(true);
+  const realtimeRef                 = useRef(null);
 
+  // ── 1. Get current user once ──────────────────────────────────────────────
+  useEffect(() => {
+    console.log('userId changed:', userId);
+  }, [userId]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        setUserId(data.user.id);
+      }
+    });
+  }, []);
+
+  // ── 2. Load profile display name ─────────────────────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', userId)
+      .single()
+      .then(({ data }) => {
+        if (data?.display_name) setDisplayName(data.display_name);
+      });
+  }, [userId]);
+
+  // ── 3. Load circles, next session, today's prompt — on focus ─────────────
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return;
+      loadHomeData(userId);
+      setupRealtimeSession(userId);
+
+      return () => {
+        if (realtimeRef.current) {
+          supabase.removeChannel(realtimeRef.current);
+          realtimeRef.current = null;
+        }
+      };
+    }, [userId])
+  );
+
+  async function loadHomeData(uid) {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchCircles(uid),
+        fetchNextSession(uid),
+        fetchTodaysPrompt(uid),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // My circles (member_count already denormalized on the row)
+  async function fetchCircles(uid) {
+    console.log('fetchCircles uid:', uid);
+    const { data, error } = await supabase
+      .from('circle_members')
+      .select(`
+        circle_id,
+        circles (
+          id,
+          name,
+          topic_tag,
+          cover_color,
+          member_count
+        )
+      `)
+      .eq('user_id', uid)
+      .order('joined_at', { ascending: true });
+
+    console.log('fetchCircles result:', JSON.stringify(data), error?.message);
+    if (error) { console.warn('fetchCircles:', error.message); return; }
+
+    const mapped = (data || [])
+      .map((row) => row.circles)
+      .filter(Boolean);
+    setCircles(mapped);
+  }
+
+  // Next upcoming or live session across all my circles
+  async function fetchNextSession(uid) {
+    // Get my circle IDs first
+    const { data: memberships } = await supabase
+      .from('circle_members')
+      .select('circle_id')
+      .eq('user_id', uid);
+
+    if (!memberships?.length) { setSession(null); return; }
+
+    const circleIds = memberships.map((m) => m.circle_id);
+
+    const { data, error } = await supabase
+      .from('sessions')
+      .select(`
+        id,
+        title,
+        host_prompt,
+        scheduled_at,
+        status,
+        circle_id,
+        circles ( name )
+      `)
+      .in('circle_id', circleIds)
+      .in('status', ['upcoming', 'live'])
+      .order('scheduled_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('fetchNextSession:', error.message);
+    }
+
+    if (data) {
+      setSession({
+        ...data,
+        circle_name: data.circles?.name ?? '',
+      });
+    } else {
+      setSession(null);
+    }
+  }
+
+  // Today's prompt from the first circle that has one
+  async function fetchTodaysPrompt(uid) {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const { data: memberships } = await supabase
+      .from('circle_members')
+      .select('circle_id')
+      .eq('user_id', uid);
+
+    if (!memberships?.length) { setPrompt(null); return; }
+
+    const circleIds = memberships.map((m) => m.circle_id);
+
+    const { data, error } = await supabase
+      .from('prompts')
+      .select(`
+        id,
+        body,
+        response_count,
+        active_date,
+        circle_id,
+        circles ( name )
+      `)
+      .in('circle_id', circleIds)
+      .eq('active_date', today)
+      .order('active_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('fetchTodaysPrompt:', error.message);
+    }
+
+    if (data) {
+      // Check if user already responded
+      const { count } = await supabase
+        .from('prompt_responses')
+        .select('id', { count: 'exact', head: true })
+        .eq('prompt_id', data.id)
+        .eq('user_id', uid);
+
+      setPrompt({
+        ...data,
+        circle_name:    data.circles?.name ?? '',
+        user_responded: (count ?? 0) > 0,
+      });
+    } else {
+      setPrompt(null);
+    }
+  }
+
+  // ── 4. Realtime — session status changes update the hero card ────────────
+  function setupRealtimeSession(uid) {
+    if (realtimeRef.current) return; // already subscribed
+
+    const channel = supabase
+      .channel('home-sessions')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'sessions' },
+        (payload) => {
+          setSession((prev) => {
+            if (!prev || prev.id !== payload.new.id) return prev;
+            return { ...prev, status: payload.new.status };
+          });
+        }
+      )
+      .subscribe();
+
+    realtimeRef.current = channel;
+  }
+
+  // ── 5. Handlers ──────────────────────────────────────────────────────────
   const handleJoinSession = useCallback(() => {
-    // TODO: navigate to SessionScreen with session.id
     navigation?.navigate('Session', { sessionId: session?.id });
   }, [session, navigation]);
 
   const handleSessionInfo = useCallback(() => {
-    // TODO: navigate to CircleScreen
     navigation?.navigate('Circle', { circleId: session?.circle_id });
   }, [session, navigation]);
 
@@ -252,10 +414,21 @@ export default function HomeScreen({ navigation }) {
   }, [navigation]);
 
   const handlePromptSubmit = useCallback(async (promptId, body) => {
-    // TODO: SUPABASE
-    // await supabase.from('prompt_responses').insert({ prompt_id: promptId, user_id: user.id, body });
-    console.log('Prompt response submitted:', { promptId, body });
-  }, [user.id]);
+    if (!userId) return;
+    const { error } = await supabase
+      .from('prompt_responses')
+      .insert({ prompt_id: promptId, user_id: userId, body });
+    if (error) console.warn('handlePromptSubmit:', error.message);
+  }, [userId]);
+
+  // ── 6. Render ─────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safe, styles.centered]}>
+        <ActivityIndicator color={COLORS.accent} size="large" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -267,7 +440,7 @@ export default function HomeScreen({ navigation }) {
         {/* ── Header ── */}
         <View style={styles.header}>
           <Text style={styles.greeting}>
-            {getGreeting()}, {user.display_name}
+            {getGreeting()}{displayName ? `, ${displayName}` : ''}
           </Text>
           <TouchableOpacity
             style={styles.bellBtn}
@@ -309,7 +482,7 @@ export default function HomeScreen({ navigation }) {
         {prompt && (
           <View style={styles.section}>
             <SectionLabel>Today's prompt</SectionLabel>
-            <PromptCard prompt={prompt} onSubmit={handlePromptSubmit} />
+            <PromptCard prompt={prompt} userId={userId} onSubmit={handlePromptSubmit} />
           </View>
         )}
 
@@ -326,6 +499,10 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: COLORS.bg,
+  },
+  centered: {
+    alignItems:     'center',
+    justifyContent: 'center',
   },
   scroll: {
     flex: 1,
@@ -384,9 +561,7 @@ const styles = StyleSheet.create({
     padding:         20,
     gap:             14,
   },
-  heroCardLive: {
-    // pulse border could go here in V2
-  },
+  heroCardLive: {},
   heroTop: {
     flexDirection:  'row',
     justifyContent: 'space-between',
@@ -439,13 +614,13 @@ const styles = StyleSheet.create({
   },
   ctaBtnWhiteText: {
     fontSize:   15,
-    fontWeight: '600',
-    color:      '#7E1934',
+    fontWeight: '700',
+    color:      COLORS.accent,
+    letterSpacing: 0.03 * 15,
   },
   ctaBtnGhost: {
-    borderWidth:  1,
-    borderColor:  'rgba(255,255,255,0.55)',
-    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.5)',
   },
   ctaBtnGhostText: {
     fontSize:   15,
@@ -455,46 +630,46 @@ const styles = StyleSheet.create({
 
   // Circles grid
   circlesGrid: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    gap:           12,
+    flexDirection:  'row',
+    flexWrap:       'wrap',
+    gap:            12,
   },
   circleTile: {
-    width:         '47.5%',
-    height:        132,
-    borderRadius:  20,
-    padding:       16,
+    width:        '47.5%',
+    aspectRatio:  1,
+    borderRadius: 20,
+    padding:      16,
     justifyContent: 'space-between',
   },
   tileName: {
-    fontSize:   17,
+    fontSize:   16,
     fontWeight: '700',
-    color:      COLORS.accentFg,
-    lineHeight: 22,
+    color:      '#FFFFFF',
+    lineHeight: 20,
   },
   tileBadge: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderRadius:    999,
     alignSelf:       'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius:    999,
     paddingHorizontal: 8,
     paddingVertical:   3,
   },
   tileBadgeText: {
     fontSize:   12,
     fontWeight: '600',
-    color:      COLORS.accentFg,
+    color:      '#FFFFFF',
   },
   findTile: {
-    borderWidth:     1.5,
-    borderStyle:     'dashed',
-    borderColor:     '#CFC5BE',
     backgroundColor: 'transparent',
+    borderWidth:     1.5,
+    borderColor:     COLORS.line,
+    borderStyle:     'dashed',
     alignItems:      'center',
     justifyContent:  'center',
   },
   findTileText: {
     fontSize:   14,
-    fontWeight: '600',
+    fontWeight: '500',
     color:      COLORS.muted,
   },
 
@@ -502,15 +677,15 @@ const styles = StyleSheet.create({
   promptCard: {
     backgroundColor: COLORS.card,
     borderRadius:    20,
-    padding:         16,
+    padding:         20,
+    gap:             8,
     borderWidth:     1,
     borderColor:     COLORS.line,
-    gap:             8,
   },
   promptEyebrow: {
-    fontSize:      12,
-    fontWeight:    '600',
-    letterSpacing: 0.08 * 12,
+    fontSize:      11,
+    fontWeight:    '700',
+    letterSpacing: 0.08 * 11,
     textTransform: 'uppercase',
     color:         COLORS.accent,
   },
@@ -530,9 +705,7 @@ const styles = StyleSheet.create({
   },
   promptInput: {
     backgroundColor: COLORS.bg,
-    borderRadius:    14,
-    borderWidth:     1,
-    borderColor:     COLORS.line,
+    borderRadius:    12,
     padding:         12,
     fontSize:        15,
     color:           COLORS.fg,
@@ -540,86 +713,50 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   promptSendBtn: {
+    alignSelf:       'flex-end',
     backgroundColor: COLORS.accent,
-    borderRadius:    22,
-    height:          44,
-    alignItems:      'center',
-    justifyContent:  'center',
+    borderRadius:    20,
+    paddingHorizontal: 20,
+    paddingVertical:    10,
   },
   promptSendText: {
-    fontSize:   15,
-    fontWeight: '600',
+    fontSize:   14,
+    fontWeight: '700',
     color:      COLORS.accentFg,
   },
   promptDone: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            6,
-    marginTop:      4,
+    marginTop:    4,
+    alignSelf:   'flex-start',
+    backgroundColor: COLORS.chipBg,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical:    6,
   },
   promptDoneText: {
-    fontSize:   14,
+    fontSize:   13,
     fontWeight: '600',
-    color:      '#3A7D5C',
+    color:      COLORS.accent,
   },
 
   // Caught up
   caughtUp: {
-    alignItems:   'center',
-    paddingTop:   16,
-    paddingBottom: 24,
-    gap:           6,
+    alignItems:  'center',
+    paddingTop:  24,
+    paddingBottom: 16,
+    gap:         8,
   },
   caughtUpIcon: {
     fontSize: 32,
-    marginBottom: 4,
   },
   caughtUpTitle: {
-    fontSize:   17,
-    fontWeight: '600',
+    fontSize:   16,
+    fontWeight: '700',
     color:      COLORS.fg,
   },
   caughtUpSub: {
     fontSize:  14,
     color:     COLORS.muted,
     textAlign: 'center',
-    maxWidth:  260,
     lineHeight: 20,
   },
 });
-
-// ─── Supabase query reference ─────────────────────────────────────────────────
-// When ready to wire live data, replace MOCK_* with these:
-//
-// TONIGHT'S SESSION:
-//   const { data: session } = await supabase
-//     .from('sessions')
-//     .select('*, circles(name)')
-//     .in('circle_id', memberCircleIds)
-//     .in('status', ['upcoming', 'live'])
-//     .order('scheduled_at', { ascending: true })
-//     .limit(1)
-//     .single();
-//
-// YOUR CIRCLES:
-//   const { data: circles } = await supabase
-//     .from('circle_members')
-//     .select('circles(id, name, topic_tag, cover_color, member_count)')
-//     .eq('user_id', user.id);
-//
-// TODAY'S PROMPT:
-//   const { data: prompt } = await supabase
-//     .from('prompts')
-//     .select('*, circles(name)')
-//     .in('circle_id', memberCircleIds)
-//     .eq('active_date', new Date().toISOString().slice(0, 10))
-//     .limit(1)
-//     .single();
-//
-//   // Check if user already responded:
-//   const { data: response } = await supabase
-//     .from('prompt_responses')
-//     .select('id')
-//     .eq('prompt_id', prompt.id)
-//     .eq('user_id', user.id)
-//     .maybeSingle();
