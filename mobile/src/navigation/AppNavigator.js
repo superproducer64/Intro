@@ -9,10 +9,15 @@ import * as api from '../services/api';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import ProfileSetupScreen from '../screens/Profile/ProfileSetupScreen';
-import DiscoverScreen from '../screens/Discover/DiscoverScreen';
+import HomeScreen from '../screens/HomeScreen';
 import MatchesScreen from '../screens/Matches/MatchesScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
-import VideoCallScreen from '../screens/VideoCall/VideoCallScreen';
+// VideoCallScreen stubbed out — not Expo Go compatible (react-native-webrtc)
+const VideoCallScreen = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+    <Text style={{ color: '#fff' }}>Video call requires dev build</Text>
+  </View>
+);
 import ExperiencesScreen from '../screens/Experiences/ExperiencesScreen';
 import CafeRoomScreen from '../screens/Experiences/CafeRoomScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
@@ -26,16 +31,11 @@ const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Tab bar display text — kept separate from the route name ("Experiences")
-// so navigation elsewhere in the app is unaffected. "Café" matches what the
-// screen itself is already titled and is the widest label by a wide margin
-// (~55-65pt vs ~19-24pt at fontSize 10), so shortening it is what actually
-// creates visible breathing room between tabs — see AppNavigator tab-bar
-// width calculations; padding on already-centered flex content does not.
-const TAB_LABELS = { Discover: 'Close', Matches: 'Match', Experiences: 'Café', Profile: 'Me' };
+// pivot/circles — tab labels updated for Circles pivot (Prototype D)
+const TAB_LABELS = { Home: 'Home', Matches: 'Circles', Experiences: 'Café', Profile: 'Me' };
 
 function TabIcon({ label, focused, badgeCount }) {
-  const icons = { Discover: '🔍', Matches: '💜', Experiences: '☕', Profile: '👤' };
+  const icons = { Home: '🏠', Matches: '⭕', Experiences: '☕', Profile: '👤' };
   return (
     <View style={styles.tabItem}>
       <View>
@@ -76,7 +76,7 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Discover" component={DiscoverScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Matches" component={MatchesScreen} />
       <Tab.Screen name="Experiences" component={ExperiencesScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
@@ -84,12 +84,6 @@ function MainTabs() {
   );
 }
 
-/**
- * AuthenticatedStack — wraps ALL post-login screens (tabs AND Chat/Settings)
- * inside a single GuidelinesGate so there is no navigation path that
- * bypasses community-guidelines acceptance, including direct navigations
- * to Chat via deep-link or programmatic navigate().
- */
 function AuthenticatedStack() {
   return (
     <GuidelinesGate>
@@ -113,12 +107,9 @@ export default function AppNavigator({ initialRoute }) {
       initialRouteName={initialRoute}
       screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}
     >
-      {/* Unauthenticated screens — no GuidelinesGate needed */}
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-
-      {/* All authenticated screens — GuidelinesGate is enforced here */}
       <Stack.Screen name="Main" component={AuthenticatedStack} />
     </Stack.Navigator>
   );

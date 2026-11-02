@@ -56,7 +56,8 @@
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "owner": "superproducer64",
     "extra": {
