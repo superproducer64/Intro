@@ -18,7 +18,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { supabase } from '../services/supabase';
+import { supabase } from '../../services/supabase';
 
 const COLORS = {
   accent:   '#AA2246',
