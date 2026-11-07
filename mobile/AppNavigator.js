@@ -93,7 +93,7 @@ function AuthenticatedStack() {
   return (
     <GuidelinesGate>
       <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
-        <AuthStack.Screen name="Main" component={MainTabs} />
+        <AuthStack.Screen name="MainApp" component={MainTabs} />
 
         {/* pivot/circles — new circle screens */}
         <AuthStack.Screen name="CircleDetail" component={CircleDetailScreen} />
