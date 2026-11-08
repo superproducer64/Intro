@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
-import * as api from '../services/api';
 
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
@@ -26,6 +25,8 @@ import GuidelinesGate from '../components/GuidelinesGate';
 import CircleScreen from '../screens/Circles/CircleScreen';
 import ExploreScreen from '../screens/Explore/ExploreScreen';
 import SessionScreen from '../screens/Sessions/SessionScreen';
+import CirclesScreen from '../screens/CirclesScreen';
+import PromptsScreen from '../screens/PromptsScreen';
 
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
@@ -34,17 +35,12 @@ const Tab = createBottomTabNavigator();
 // pivot/circles — tab labels updated for Circles pivot (Prototype D)
 const TAB_LABELS = { Home: 'Home', Matches: 'Circles', Experiences: 'Café', Profile: 'Me' };
 
-function TabIcon({ label, focused, badgeCount }) {
+function TabIcon({ label, focused }) {
   const icons = { Home: '🏠', Matches: '⭕', Experiences: '☕', Profile: '👤' };
   return (
     <View style={styles.tabItem}>
       <View>
         <Text style={styles.tabIcon}>{icons[label]}</Text>
-        {badgeCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text>
-          </View>
-        )}
       </View>
       <Text
         style={[styles.tabLabel, focused && styles.tabLabelActive]}
@@ -61,9 +57,6 @@ function TabIcon({ label, focused, badgeCount }) {
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, 12);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => api.addUnreadCountListener(setUnreadCount), []);
 
   return (
     <Tab.Navigator
@@ -72,12 +65,12 @@ function MainTabs() {
         tabBarStyle: [styles.tabBar, { height: 56 + bottomInset, paddingBottom: bottomInset }],
         tabBarShowLabel: false,
         tabBarIcon: ({ focused }) => (
-          <TabIcon label={route.name} focused={focused} badgeCount={route.name === 'Matches' ? unreadCount : 0} />
+          <TabIcon label={route.name} focused={focused} />
         ),
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Matches" component={MatchesScreen} />
+      <Tab.Screen name="Matches" component={CirclesScreen} />
       <Tab.Screen name="Experiences" component={ExperiencesScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
@@ -107,6 +100,8 @@ function AuthenticatedStack() {
         <AuthStack.Screen name="Circle" component={CircleScreen} />
         <AuthStack.Screen name="Explore" component={ExploreScreen} />
         <AuthStack.Screen name="Session" component={SessionScreen} />
+        <AuthStack.Screen name="Circles" component={CirclesScreen} />
+        <AuthStack.Screen name="Prompts" component={PromptsScreen} />
       </AuthStack.Navigator>
     </GuidelinesGate>
   );
@@ -138,12 +133,6 @@ const styles = StyleSheet.create({
   },
   tabItem: { alignItems: 'center', gap: 4 },
   tabIcon: { fontSize: 22 },
-  badge: {
-    position: 'absolute', top: -4, right: -10,
-    minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3,
-    backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
-  },
-  badgeText: { fontSize: 10, color: '#fff', fontWeight: 'bold' },
   tabLabel: { fontSize: 10, color: COLORS.textMuted },
   tabLabelActive: { color: COLORS.primary, fontWeight: '600' },
 });

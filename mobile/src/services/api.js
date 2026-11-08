@@ -933,8 +933,6 @@ function uploadLocalFileWithProgress(bucket, path, localUri, contentType, onProg
         'x-upsert': 'false',
       },
       onProgress: ({ bytesSent, totalBytes }) => {
-        // TEMP DIAGNOSTIC — remove once on-device testing confirms real percentage updates.
-        console.log('[uploadVideo progress]', bytesSent, '/', totalBytes);
         if (onProgress && totalBytes > 0) onProgress(bytesSent / totalBytes);
       },
     })

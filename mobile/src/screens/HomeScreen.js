@@ -1,14 +1,13 @@
 /**
  * HomeScreen.js
- * Intro — Prototype D "Combined" home screen
+ * Intro — Prototype A "Tonight" home screen
  * Branch: pivot/circles
  *
  * Layout (top → bottom):
  *   1. Header (greeting + notification bell)
- *   2. Tonight's Session hero card  ← live session from user's circles
- *   3. Your Circles grid (2-col tiles + Find More)
- *   4. Today's Prompt card
- *   5. Caught Up state (end of feed, no infinite scroll)
+ *   2. UP NEXT hero card  ← next upcoming/live session
+ *   3. This week — schedule list of upcoming sessions
+ *   4. Replies note (if any)
  *
  * Data: wired to Supabase. All queries use the authenticated user's session.
  */
@@ -21,43 +20,25 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  TextInput,
   Platform,
   ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
 
-// ─── Brand tokens (matches Prototype D exactly) ───────────────────────────────
+// ─── Brand tokens ─────────────────────────────────────────────────────────────
 const COLORS = {
-  accent:    '#AA2246',
-  bg:        '#F7F3EF',
-  card:      '#FFFFFF',
-  fg:        '#1E1A1D',
-  muted:     '#6B6168',
-  line:      '#ECE5DF',
-  chipBg:    '#EFE7E1',
-  accentFg:  '#FFFFFF',
-  // Circle tile palette — maps to topic_tag
-  books:     '#7B4F8C',
-  mornings:  '#4A7C6F',
-  film:      '#2C4A7A',
-  making:    '#7A4A2C',
-  default:   '#AA2246',
+  accent:   '#AA2246',
+  bg:       '#F7F3EF',
+  card:     '#FFFFFF',
+  fg:       '#1E1A1D',
+  muted:    '#6B6168',
+  line:     '#ECE5DF',
+  chipBg:   '#EFE7E1',
+  accentFg: '#FFFFFF',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatSessionTime(isoString) {
-  const date = new Date(isoString);
-  const now  = new Date();
-  const diffH = Math.round((date - now) / (1000 * 60 * 60));
-
-  if (diffH <= 0)   return 'Happening now';
-  if (diffH === 1)  return 'In 1 hour';
-  if (diffH < 24)  return `Tonight · ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-  return date.toLocaleDateString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' });
-}
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -66,22 +47,54 @@ function getGreeting() {
   return 'Good evening';
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function getDayLabel(isoString) {
+  const date = new Date(isoString);
+  const now  = new Date();
+  const diff = Math.floor((date - now) / (1000 * 60 * 60 * 24));
 
-function SectionLabel({ children }) {
-  return <Text style={styles.sectionLabel}>{children}</Text>;
+  if (diff < 1) return 'TODAY';
+  if (diff < 2) return 'TMW';
+
+  return date.toLocaleDateString([], { weekday: 'short' }).toUpperCase();
 }
+
+function getTimeLabel(isoString) {
+  const date = new Date(isoString);
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const hour = h % 12 || 12;
+  const suffix = h < 12 ? 'a' : 'p';
+  if (m === 0) return `${hour}${suffix}`;
+  return `${hour}:${String(m).padStart(2, '0')}${suffix}`;
+}
+
+function getHeroTimeLabel(isoString, status) {
+  if (status === 'live') return 'Happening now';
+  const date = new Date(isoString);
+  const now  = new Date();
+  const diffMin = Math.round((date - now) / (1000 * 60));
+  if (diffMin <= 0)  return 'Starting now';
+  if (diffMin < 60)  return `in ${diffMin} min`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24)   return `in ${diffH}h`;
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SessionHeroCard({ session, onJoin, onInfo }) {
   const isLive = session.status === 'live';
+  const cardColor = session.circle_cover_color ?? COLORS.accent;
 
   return (
-    <View style={[styles.heroCard, isLive && styles.heroCardLive]}>
+    <View style={[styles.heroCard, { backgroundColor: cardColor }]}>
       <View style={styles.heroTop}>
-        <Text style={styles.heroEyebrow}>{session.circle_name}</Text>
+        <Text style={styles.heroEyebrow}>
+          {isLive ? 'Happening now' : 'Up next · ' + getTimeLabel(session.scheduled_at)}
+        </Text>
         <View style={styles.heroTimePill}>
           <Text style={styles.heroTimeText}>
-            {isLive ? '● Live now' : formatSessionTime(session.scheduled_at)}
+            {getHeroTimeLabel(session.scheduled_at, session.status)}
           </Text>
         </View>
       </View>
@@ -92,13 +105,18 @@ function SessionHeroCard({ session, onJoin, onInfo }) {
         <Text style={styles.heroPrompt}>"{session.host_prompt}"</Text>
       ) : null}
 
+      <Text style={styles.heroMeta}>
+        {session.circle_name} circle
+        {session.rsvp_count ? ` · ${session.rsvp_count} going` : ''}
+      </Text>
+
       <View style={styles.heroCTAs}>
         <TouchableOpacity
           style={[styles.ctaBtn, styles.ctaBtnWhite]}
           onPress={onJoin}
           activeOpacity={0.8}
         >
-          <Text style={styles.ctaBtnWhiteText}>{isLive ? 'Join now' : 'RSVP'}</Text>
+          <Text style={styles.ctaBtnWhiteText}>{"I'm in"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.ctaBtn, styles.ctaBtnGhost]}
@@ -112,103 +130,38 @@ function SessionHeroCard({ session, onJoin, onInfo }) {
   );
 }
 
-function CircleTile({ circle, onPress }) {
+function WeekRow({ session, onPress }) {
   return (
-    <TouchableOpacity
-      style={[styles.circleTile, { backgroundColor: circle.cover_color || COLORS.default }]}
-      onPress={() => onPress(circle)}
-      activeOpacity={0.85}
-    >
-      <Text style={styles.tileName}>{circle.name}</Text>
-      <View style={styles.tileBadge}>
-        <Text style={styles.tileBadgeText}>{circle.member_count}</Text>
+    <TouchableOpacity style={styles.weekRow} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.weekDay}>
+        <Text style={styles.weekDayLabel}>{getDayLabel(session.scheduled_at)}</Text>
+        <Text style={styles.weekDayTime}>{getTimeLabel(session.scheduled_at)}</Text>
+      </View>
+      <View style={styles.weekInfo}>
+        <Text style={styles.weekTitle} numberOfLines={1}>{session.title}</Text>
+        <Text style={styles.weekSub} numberOfLines={1}>
+          {session.circle_name}
+          {session.rsvp_count ? ` · ${session.rsvp_count} going` : ''}
+        </Text>
       </View>
     </TouchableOpacity>
-  );
-}
-
-function FindCircleTile({ onPress }) {
-  return (
-    <TouchableOpacity style={[styles.circleTile, styles.findTile]} onPress={onPress} activeOpacity={0.7}>
-      <Text style={styles.findTileText}>+ Find a circle</Text>
-    </TouchableOpacity>
-  );
-}
-
-function PromptCard({ prompt, userId, onSubmit }) {
-  const [answer, setAnswer]       = useState('');
-  const [submitted, setSubmitted] = useState(prompt.user_responded);
-
-  const handleSubmit = useCallback(() => {
-    if (!answer.trim()) return;
-    onSubmit(prompt.id, answer.trim());
-    setSubmitted(true);
-    setAnswer('');
-  }, [answer, prompt.id, onSubmit]);
-
-  return (
-    <View style={styles.promptCard}>
-      <Text style={styles.promptEyebrow}>{prompt.circle_name} · Today's prompt</Text>
-      <Text style={styles.promptBody}>{prompt.body}</Text>
-      <Text style={styles.promptCount}>{prompt.response_count} answers</Text>
-
-      {submitted ? (
-        <View style={styles.promptDone}>
-          <Text style={styles.promptDoneText}>✓ You answered</Text>
-        </View>
-      ) : (
-        <View style={styles.promptCompose}>
-          <TextInput
-            style={styles.promptInput}
-            placeholder="Your answer…"
-            placeholderTextColor={COLORS.muted}
-            value={answer}
-            onChangeText={setAnswer}
-            multiline
-            maxLength={500}
-          />
-          {answer.trim().length > 0 && (
-            <TouchableOpacity style={styles.promptSendBtn} onPress={handleSubmit} activeOpacity={0.8}>
-              <Text style={styles.promptSendText}>Send</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-    </View>
-  );
-}
-
-function CaughtUpState() {
-  return (
-    <View style={styles.caughtUp}>
-      <Text style={styles.caughtUpIcon}>🌿</Text>
-      <Text style={styles.caughtUpTitle}>You're all caught up</Text>
-      <Text style={styles.caughtUpSub}>Check back when your circles post something new.</Text>
-    </View>
   );
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen({ navigation }) {
-  const [userId, setUserId]         = useState(null);
+  const [userId, setUserId]           = useState(null);
   const [displayName, setDisplayName] = useState('');
-  const [session, setSession]       = useState(null);   // next upcoming/live session
-  const [circles, setCircles]       = useState([]);
-  const [prompt, setPrompt]         = useState(null);   // today's active prompt
-  const [loading, setLoading]       = useState(true);
-  const realtimeRef                 = useRef(null);
+  const [nextSession, setNextSession] = useState(null);
+  const [weekSessions, setWeekSessions] = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const realtimeRef                   = useRef(null);
 
-  // ── 1. Get current user once ──────────────────────────────────────────────
-  useEffect(() => {
-    console.log('userId changed:', userId);
-  }, [userId]);
-
+  // ── 1. Get current user ───────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data?.user) {
-        setUserId(data.user.id);
-      }
+      if (data?.user) setUserId(data.user.id);
     });
   }, []);
 
@@ -217,20 +170,20 @@ export default function HomeScreen({ navigation }) {
     if (!userId) return;
     supabase
       .from('profiles')
-      .select('display_name')
+      .select('name')
       .eq('id', userId)
       .single()
       .then(({ data }) => {
-        if (data?.display_name) setDisplayName(data.display_name);
+        if (data?.name) setDisplayName(data.name);
       });
   }, [userId]);
 
-  // ── 3. Load circles, next session, today's prompt — on focus ─────────────
+  // ── 3. Load data on focus ─────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       if (!userId) return;
       loadHomeData(userId);
-      setupRealtimeSession(userId);
+      setupRealtime(userId);
 
       return () => {
         if (realtimeRef.current) {
@@ -244,54 +197,30 @@ export default function HomeScreen({ navigation }) {
   async function loadHomeData(uid) {
     setLoading(true);
     try {
-      await Promise.all([
-        fetchCircles(uid),
-        fetchNextSession(uid),
-        fetchTodaysPrompt(uid),
-      ]);
+      await fetchSessions(uid);
     } finally {
       setLoading(false);
     }
   }
 
-  // My circles (member_count already denormalized on the row)
-  async function fetchCircles(uid) {
-    console.log('fetchCircles uid:', uid);
-    const { data, error } = await supabase
-      .from('circle_members')
-      .select(`
-        circle_id,
-        circles (
-          id,
-          name,
-          topic_tag,
-          cover_color,
-          member_count
-        )
-      `)
-      .eq('user_id', uid)
-      .order('joined_at', { ascending: true });
-
-    console.log('fetchCircles result:', JSON.stringify(data), error?.message);
-    if (error) { console.warn('fetchCircles:', error.message); return; }
-
-    const mapped = (data || [])
-      .map((row) => row.circles)
-      .filter(Boolean);
-    setCircles(mapped);
-  }
-
-  // Next upcoming or live session across all my circles
-  async function fetchNextSession(uid) {
-    // Get my circle IDs first
+  async function fetchSessions(uid) {
+    // Get my circle IDs
     const { data: memberships } = await supabase
       .from('circle_members')
       .select('circle_id')
       .eq('user_id', uid);
 
-    if (!memberships?.length) { setSession(null); return; }
+    if (!memberships?.length) {
+      setNextSession(null);
+      setWeekSessions([]);
+      return;
+    }
 
     const circleIds = memberships.map((m) => m.circle_id);
+
+    // Fetch upcoming + live sessions for the next 7 days
+    const weekOut = new Date();
+    weekOut.setDate(weekOut.getDate() + 7);
 
     const { data, error } = await supabase
       .from('sessions')
@@ -302,90 +231,46 @@ export default function HomeScreen({ navigation }) {
         scheduled_at,
         status,
         circle_id,
-        circles ( name )
+        circles ( name, cover_color )
       `)
       .in('circle_id', circleIds)
       .in('status', ['upcoming', 'live'])
+      .or(`status.eq.live,scheduled_at.gte.${new Date().toISOString()}`)
+      .lte('scheduled_at', weekOut.toISOString())
       .order('scheduled_at', { ascending: true })
-      .limit(1)
-      .single();
+      .limit(10);
 
-    if (error && error.code !== 'PGRST116') {
-      console.warn('fetchNextSession:', error.message);
+    if (error) {
+      console.warn('fetchSessions:', error.message);
+      return;
     }
 
-    if (data) {
-      setSession({
-        ...data,
-        circle_name: data.circles?.name ?? '',
-      });
+    const mapped = (data || []).map((s) => ({
+      ...s,
+      circle_name:        s.circles?.name ?? '',
+      circle_cover_color: s.circles?.cover_color ?? null,
+    }));
+
+    if (mapped.length > 0) {
+      setNextSession(mapped[0]);
+      setWeekSessions(mapped.slice(1));
     } else {
-      setSession(null);
+      setNextSession(null);
+      setWeekSessions([]);
     }
   }
 
-  // Today's prompt from the first circle that has one
-  async function fetchTodaysPrompt(uid) {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-    const { data: memberships } = await supabase
-      .from('circle_members')
-      .select('circle_id')
-      .eq('user_id', uid);
-
-    if (!memberships?.length) { setPrompt(null); return; }
-
-    const circleIds = memberships.map((m) => m.circle_id);
-
-    const { data, error } = await supabase
-      .from('prompts')
-      .select(`
-        id,
-        body,
-        response_count,
-        active_date,
-        circle_id,
-        circles ( name )
-      `)
-      .in('circle_id', circleIds)
-      .eq('active_date', today)
-      .order('active_date', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.warn('fetchTodaysPrompt:', error.message);
-    }
-
-    if (data) {
-      // Check if user already responded
-      const { count } = await supabase
-        .from('prompt_responses')
-        .select('id', { count: 'exact', head: true })
-        .eq('prompt_id', data.id)
-        .eq('user_id', uid);
-
-      setPrompt({
-        ...data,
-        circle_name:    data.circles?.name ?? '',
-        user_responded: (count ?? 0) > 0,
-      });
-    } else {
-      setPrompt(null);
-    }
-  }
-
-  // ── 4. Realtime — session status changes update the hero card ────────────
-  function setupRealtimeSession(uid) {
-    if (realtimeRef.current) return; // already subscribed
+  // ── 4. Realtime — session status changes ─────────────────────────────────
+  function setupRealtime(uid) {
+    if (realtimeRef.current) return;
 
     const channel = supabase
-      .channel('home-sessions')
+      .channel('home-sessions-a')
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'sessions' },
         (payload) => {
-          setSession((prev) => {
+          setNextSession((prev) => {
             if (!prev || prev.id !== payload.new.id) return prev;
             return { ...prev, status: payload.new.status };
           });
@@ -397,29 +282,21 @@ export default function HomeScreen({ navigation }) {
   }
 
   // ── 5. Handlers ──────────────────────────────────────────────────────────
-  const handleJoinSession = useCallback(() => {
-    navigation?.navigate('Session', { sessionId: session?.id });
-  }, [session, navigation]);
+  const handleJoin = useCallback(() => {
+    navigation?.navigate('Session', { sessionId: nextSession?.id });
+  }, [nextSession, navigation]);
 
-  const handleSessionInfo = useCallback(() => {
-    navigation?.navigate('Circle', { circleId: session?.circle_id });
-  }, [session, navigation]);
+  const handleInfo = useCallback(() => {
+    navigation?.navigate('Circle', { circleId: nextSession?.circle_id });
+  }, [nextSession, navigation]);
 
-  const handleCirclePress = useCallback((circle) => {
-    navigation?.navigate('Circle', { circleId: circle.id });
+  const handleWeekSession = useCallback((session) => {
+    navigation?.navigate('Circle', { circleId: session.circle_id });
   }, [navigation]);
 
-  const handleFindCircle = useCallback(() => {
-    navigation?.navigate('Explore');
+  const handleAllCircles = useCallback(() => {
+    navigation?.navigate('Matches');
   }, [navigation]);
-
-  const handlePromptSubmit = useCallback(async (promptId, body) => {
-    if (!userId) return;
-    const { error } = await supabase
-      .from('prompt_responses')
-      .insert({ prompt_id: promptId, user_id: userId, body });
-    if (error) console.warn('handlePromptSubmit:', error.message);
-  }, [userId]);
 
   // ── 6. Render ─────────────────────────────────────────────────────────────
   if (loading) {
@@ -439,9 +316,14 @@ export default function HomeScreen({ navigation }) {
       >
         {/* ── Header ── */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>
-            {getGreeting()}{displayName ? `, ${displayName}` : ''}
-          </Text>
+          <View style={styles.headerText}>
+            <Text style={styles.headerSub}>
+              {new Date().toLocaleDateString([], { weekday: 'long' })} evening
+            </Text>
+            <Text style={styles.greeting}>
+              {getGreeting()}{displayName ? `, ${displayName}` : ''}
+            </Text>
+          </View>
           <TouchableOpacity
             style={styles.bellBtn}
             onPress={() => navigation?.navigate('Notifications')}
@@ -451,43 +333,67 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ── 1. Tonight's Session ── */}
-        {session && (
-          <View style={styles.section}>
-            <SectionLabel>
-              {session.status === 'live' ? 'Happening now' : 'Tonight'}
-            </SectionLabel>
-            <SessionHeroCard
-              session={session}
-              onJoin={handleJoinSession}
-              onInfo={handleSessionInfo}
-            />
+        {/* ── UP NEXT hero card ── */}
+        {nextSession ? (
+          <SessionHeroCard
+            session={nextSession}
+            onJoin={handleJoin}
+            onInfo={handleInfo}
+          />
+        ) : (
+          <View style={styles.emptyHero}>
+            <Text style={styles.emptyHeroText}>No sessions coming up this week.</Text>
+            <TouchableOpacity onPress={handleAllCircles}>
+              <Text style={styles.emptyHeroLink}>Find a circle →</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* ── 2. Your Circles ── */}
-        {circles.length > 0 && (
+        {/* ── Today's Prompts ── */}
+        <TouchableOpacity
+          style={styles.promptsCard}
+          onPress={() => navigation?.navigate('Prompts')}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Today's Prompts"
+        >
+          <Text style={styles.promptsCardTitle}>Today's Prompts →</Text>
+          <Text style={styles.promptsCardSub}>Answer today's question in your circles</Text>
+        </TouchableOpacity>
+
+        {/* ── This week ── */}
+        {weekSessions.length > 0 && (
           <View style={styles.section}>
-            <SectionLabel>Your circles</SectionLabel>
-            <View style={styles.circlesGrid}>
-              {circles.map((c) => (
-                <CircleTile key={c.id} circle={c} onPress={handleCirclePress} />
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>This week</Text>
+              <TouchableOpacity onPress={handleAllCircles}>
+                <Text style={styles.sectionLink}>All circles</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.weekList}>
+              {weekSessions.map((s) => (
+                <WeekRow
+                  key={s.id}
+                  session={s}
+                  onPress={() => handleWeekSession(s)}
+                />
               ))}
-              <FindCircleTile onPress={handleFindCircle} />
             </View>
           </View>
         )}
 
-        {/* ── 3. Today's Prompt ── */}
-        {prompt && (
-          <View style={styles.section}>
-            <SectionLabel>Today's prompt</SectionLabel>
-            <PromptCard prompt={prompt} userId={userId} onSubmit={handlePromptSubmit} />
-          </View>
-        )}
+        {/* ── Replies note ── */}
+        <TouchableOpacity
+          style={styles.repliesNote}
+          onPress={() => navigation?.navigate('Chats')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.repliesIcon}>💬</Text>
+          <Text style={styles.repliesText}>
+            People replied to you. <Text style={styles.repliesMuted}>No rush.</Text>
+          </Text>
+        </TouchableOpacity>
 
-        {/* ── 4. Caught Up ── */}
-        <CaughtUpState />
       </ScrollView>
     </SafeAreaView>
   );
@@ -504,25 +410,30 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
   },
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 48,
+    paddingBottom:     56,
   },
 
   // Header
   header: {
     flexDirection:  'row',
     justifyContent: 'space-between',
-    alignItems:     'center',
+    alignItems:     'flex-start',
     paddingTop:     24,
     paddingBottom:  20,
   },
+  headerText: {
+    gap: 2,
+  },
+  headerSub: {
+    fontSize:  14,
+    color:     COLORS.muted,
+  },
   greeting: {
     fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
-    fontSize:   24,
+    fontSize:   28,
     fontWeight: '700',
     color:      COLORS.fg,
     letterSpacing: -0.5,
@@ -537,31 +448,15 @@ const styles = StyleSheet.create({
     alignItems:      'center',
     justifyContent:  'center',
   },
-  bellIcon: {
-    fontSize: 18,
-  },
+  bellIcon: { fontSize: 18 },
 
-  // Section wrapper
-  section: {
+  // Hero card
+  heroCard: {
+    borderRadius: 24,
+    padding:      20,
+    gap:          12,
     marginBottom: 28,
   },
-  sectionLabel: {
-    fontSize:      12,
-    fontWeight:    '700',
-    letterSpacing: 0.08 * 12,
-    textTransform: 'uppercase',
-    color:         COLORS.accent,
-    marginBottom:  10,
-  },
-
-  // Hero session card
-  heroCard: {
-    backgroundColor: COLORS.accent,
-    borderRadius:    24,
-    padding:         20,
-    gap:             14,
-  },
-  heroCardLive: {},
   heroTop: {
     flexDirection:  'row',
     justifyContent: 'space-between',
@@ -575,8 +470,8 @@ const styles = StyleSheet.create({
     color:         'rgba(255,255,255,0.85)',
   },
   heroTimePill: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius:    999,
+    backgroundColor:  'rgba(255,255,255,0.18)',
+    borderRadius:     999,
     paddingHorizontal: 10,
     paddingVertical:    4,
   },
@@ -592,10 +487,14 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   heroPrompt: {
-    fontSize:   15,
-    color:      'rgba(255,255,255,0.88)',
+    fontSize:  15,
+    color:     'rgba(255,255,255,0.88)',
     lineHeight: 22,
-    fontStyle:  'italic',
+    fontStyle: 'italic',
+  },
+  heroMeta: {
+    fontSize: 14,
+    color:    'rgba(255,255,255,0.80)',
   },
   heroCTAs: {
     flexDirection: 'row',
@@ -616,7 +515,6 @@ const styles = StyleSheet.create({
     fontSize:   15,
     fontWeight: '700',
     color:      COLORS.accent,
-    letterSpacing: 0.03 * 15,
   },
   ctaBtnGhost: {
     borderWidth: 1.5,
@@ -628,135 +526,136 @@ const styles = StyleSheet.create({
     color:      COLORS.accentFg,
   },
 
-  // Circles grid
-  circlesGrid: {
-    flexDirection:  'row',
-    flexWrap:       'wrap',
-    gap:            12,
-  },
-  circleTile: {
-    width:        '47.5%',
-    aspectRatio:  1,
-    borderRadius: 20,
-    padding:      16,
-    justifyContent: 'space-between',
-  },
-  tileName: {
-    fontSize:   16,
-    fontWeight: '700',
-    color:      '#FFFFFF',
-    lineHeight: 20,
-  },
-  tileBadge: {
-    alignSelf:       'flex-start',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius:    999,
-    paddingHorizontal: 8,
-    paddingVertical:   3,
-  },
-  tileBadgeText: {
-    fontSize:   12,
-    fontWeight: '600',
-    color:      '#FFFFFF',
-  },
-  findTile: {
-    backgroundColor: 'transparent',
-    borderWidth:     1.5,
-    borderColor:     COLORS.line,
-    borderStyle:     'dashed',
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  findTileText: {
-    fontSize:   14,
-    fontWeight: '500',
-    color:      COLORS.muted,
-  },
-
-  // Prompt card
-  promptCard: {
+  // Empty hero
+  emptyHero: {
     backgroundColor: COLORS.card,
-    borderRadius:    20,
-    padding:         20,
+    borderRadius:    24,
+    padding:         24,
+    alignItems:      'center',
     gap:             8,
+    marginBottom:    28,
     borderWidth:     1,
     borderColor:     COLORS.line,
   },
-  promptEyebrow: {
-    fontSize:      11,
-    fontWeight:    '700',
-    letterSpacing: 0.08 * 11,
-    textTransform: 'uppercase',
-    color:         COLORS.accent,
-  },
-  promptBody: {
-    fontSize:   17,
-    fontWeight: '600',
-    color:      COLORS.fg,
-    lineHeight: 24,
-  },
-  promptCount: {
-    fontSize: 13,
+  emptyHeroText: {
+    fontSize: 15,
     color:    COLORS.muted,
   },
-  promptCompose: {
-    marginTop: 4,
-    gap:       8,
-  },
-  promptInput: {
-    backgroundColor: COLORS.bg,
-    borderRadius:    12,
-    padding:         12,
-    fontSize:        15,
-    color:           COLORS.fg,
-    minHeight:       72,
-    textAlignVertical: 'top',
-  },
-  promptSendBtn: {
-    alignSelf:       'flex-end',
-    backgroundColor: COLORS.accent,
-    borderRadius:    20,
-    paddingHorizontal: 20,
-    paddingVertical:    10,
-  },
-  promptSendText: {
-    fontSize:   14,
-    fontWeight: '700',
-    color:      COLORS.accentFg,
-  },
-  promptDone: {
-    marginTop:    4,
-    alignSelf:   'flex-start',
-    backgroundColor: COLORS.chipBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical:    6,
-  },
-  promptDoneText: {
-    fontSize:   13,
+  emptyHeroLink: {
+    fontSize:   15,
     fontWeight: '600',
     color:      COLORS.accent,
   },
 
-  // Caught up
-  caughtUp: {
-    alignItems:  'center',
-    paddingTop:  24,
-    paddingBottom: 16,
-    gap:         8,
+  // Today's Prompts card
+  promptsCard: {
+    backgroundColor: COLORS.card,
+    borderRadius:    20,
+    borderWidth:     1,
+    borderColor:     COLORS.line,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.accent,
+    paddingVertical:   16,
+    paddingHorizontal: 16,
+    gap:             2,
+    marginBottom:    28,
   },
-  caughtUpIcon: {
-    fontSize: 32,
-  },
-  caughtUpTitle: {
+  promptsCardTitle: {
     fontSize:   16,
     fontWeight: '700',
     color:      COLORS.fg,
   },
-  caughtUpSub: {
-    fontSize:  14,
-    color:     COLORS.muted,
-    textAlign: 'center',
-    lineHeight: 20,
+  promptsCardSub: {
+    fontSize: 13,
+    color:    COLORS.muted,
+  },
+
+  // Section
+  section: {
+    marginBottom: 28,
+  },
+  sectionHeader: {
+    flexDirection:  'row',
+    justifyContent: 'space-between',
+    alignItems:     'center',
+    marginBottom:   12,
+  },
+  sectionTitle: {
+    fontSize:   19,
+    fontWeight: '700',
+    color:      COLORS.fg,
+    letterSpacing: -0.3,
+  },
+  sectionLink: {
+    fontSize:   14,
+    fontWeight: '600',
+    color:      COLORS.accent,
+  },
+
+  // Week list
+  weekList: {
+    backgroundColor: COLORS.card,
+    borderRadius:    20,
+    borderWidth:     1,
+    borderColor:     COLORS.line,
+    overflow:        'hidden',
+  },
+  weekRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           14,
+    paddingHorizontal: 16,
+    paddingVertical:   14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.line,
+  },
+  weekDay: {
+    width:     52,
+    alignItems: 'center',
+  },
+  weekDayLabel: {
+    fontSize:      11,
+    fontWeight:    '600',
+    letterSpacing: 0.08 * 11,
+    color:         COLORS.muted,
+  },
+  weekDayTime: {
+    fontSize:   20,
+    fontWeight: '700',
+    color:      COLORS.fg,
+    letterSpacing: -0.5,
+  },
+  weekInfo: {
+    flex:    1,
+    gap:     2,
+  },
+  weekTitle: {
+    fontSize:   15,
+    fontWeight: '600',
+    color:      COLORS.fg,
+  },
+  weekSub: {
+    fontSize: 13,
+    color:    COLORS.muted,
+  },
+
+  // Replies note
+  repliesNote: {
+    backgroundColor: COLORS.chipBg,
+    borderRadius:    16,
+    padding:         16,
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             12,
+  },
+  repliesIcon: { fontSize: 20 },
+  repliesText: {
+    fontSize:   14,
+    color:      COLORS.fg,
+    fontWeight: '500',
+  },
+  repliesMuted: {
+    color: COLORS.muted,
+    fontWeight: '400',
   },
 });

@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, Dimensions, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { NestableScrollContainer, NestableDraggableFlatList } from 'react-native-draggable-flatlist';
 import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES, LOOKING_FOR } from '../../constants/theme';
 import * as api from '../../services/api';
+import { supabase } from '../../services/supabase';
 import InlineVideoPlayer from '../../components/InlineVideoPlayer';
 
 const GRID_GAP = SPACING.sm;
@@ -43,6 +44,27 @@ export default function ProfileScreen({ navigation }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(null);
+  const [myCircles, setMyCircles] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // First 3 circles the user belongs to, for the "My Circles" shortcut.
+  const loadMyCircles = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData?.user?.id;
+      if (!uid) return;
+      const { data, error } = await supabase
+        .from('circle_members')
+        .select('joined_at, circles ( id, name, cover_color, member_count )')
+        .eq('user_id', uid)
+        .order('joined_at', { ascending: true })
+        .limit(3);
+      if (error) throw error;
+      setMyCircles((data || []).map((m) => m.circles).filter(Boolean));
+    } catch (e) {
+      console.warn('loadMyCircles:', e?.message || e);
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -69,7 +91,16 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  useFocusEffect(useCallback(() => { loadProfile(); }, []));
+  useFocusEffect(useCallback(() => { loadProfile(); loadMyCircles(); }, []));
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadProfile(), loadMyCircles()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -296,7 +327,11 @@ export default function ProfileScreen({ navigation }) {
   }
 
   return (
-    <NestableScrollContainer style={styles.container} contentContainerStyle={styles.scroll}>
+    <NestableScrollContainer
+      style={styles.container}
+      contentContainerStyle={styles.scroll}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+    >
       <View style={styles.headerRow}>
         <Text style={styles.header}>Profile</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
@@ -414,6 +449,38 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>
             <Text style={styles.editText}>Edit Profile</Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {!editing && (
+        <View style={styles.section}>
+          <View style={styles.circlesHeader}>
+            <Text style={[styles.sectionTitle, styles.circlesTitle]}>My Circles</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Matches')}>
+              <Text style={styles.seeAll}>See all</Text>
+            </TouchableOpacity>
+          </View>
+          {myCircles.length > 0 ? (
+            myCircles.map((c) => (
+              <TouchableOpacity
+                key={c.id}
+                style={styles.circleRow}
+                onPress={() => navigation.navigate('Circle', { circleId: c.id, circleName: c.name })}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.circleSwatch, { backgroundColor: c.cover_color || COLORS.primary }]} />
+                <View style={styles.circleInfo}>
+                  <Text style={styles.circleName} numberOfLines={1}>{c.name}</Text>
+                  <Text style={styles.circleMeta}>
+                    {c.member_count ?? 0} {c.member_count === 1 ? 'member' : 'members'}
+                  </Text>
+                </View>
+                <Text style={styles.circleArrow}>›</Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.sectionHint}>You haven't joined a circle yet.</Text>
+          )}
         </View>
       )}
 
@@ -541,6 +608,20 @@ const styles = StyleSheet.create({
   section: { marginTop: SPACING.xl },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text, marginBottom: SPACING.xs },
   sectionHint: { fontSize: 13, color: COLORS.textMuted, marginBottom: SPACING.sm },
+  circlesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  circlesTitle: { marginBottom: 0 },
+  seeAll: { fontSize: 14, fontWeight: '600', color: COLORS.primary },
+  circleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+    backgroundColor: COLORS.bgLight, borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md, marginBottom: SPACING.xs,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  circleSwatch: { width: 36, height: 36, borderRadius: 18 },
+  circleInfo: { flex: 1 },
+  circleName: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+  circleMeta: { fontSize: 13, color: COLORS.textMuted },
+  circleArrow: { color: COLORS.textMuted, fontSize: 20 },
   photoCell: { width: PHOTO_SIZE, height: PHOTO_SIZE, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', marginRight: GRID_GAP, marginBottom: GRID_GAP, backgroundColor: COLORS.bgLight },
   photoCellNoMargin: { marginRight: 0 },
   photoCellActive: { opacity: 0.8, transform: [{ scale: 1.03 }] },

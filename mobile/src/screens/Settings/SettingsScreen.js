@@ -31,7 +31,7 @@ export default function SettingsScreen({ navigation }) {
           onPress: () => {
             Alert.alert(
               'Are you absolutely sure?',
-              'All your matches, messages, and profile data will be permanently erased.',
+              'This will permanently delete your account, circles, and all your data. This cannot be undone.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -64,6 +64,19 @@ export default function SettingsScreen({ navigation }) {
         </TouchableOpacity>
         <Text style={styles.header}>Settings</Text>
         <View style={{ width: 60 }} />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Preferences</Text>
+        {/* Placeholders — no-op for now */}
+        <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
+          <Text style={styles.menuText}>Notifications</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.menuItem} activeOpacity={0.7}>
+          <Text style={styles.menuText}>Privacy</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -107,7 +120,7 @@ export default function SettingsScreen({ navigation }) {
         >
           <Text style={styles.deleteText}>{deleting ? 'Deleting...' : 'Delete Account'}</Text>
         </TouchableOpacity>
-        <Text style={styles.dangerNote}>This will permanently delete all your data including matches, messages, and profile information.</Text>
+        <Text style={styles.dangerNote}>This will permanently delete your account, circles, and all your data. This cannot be undone.</Text>
       </View>
 
       <Text style={styles.version}>Intro v1.0.0</Text>

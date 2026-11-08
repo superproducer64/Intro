@@ -24,9 +24,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 export async function testSupabaseConnection() {
   const { data, error } = await supabase.from('profiles').select('name, personality_type').limit(5);
   if (error) {
-    console.log('[supabase test] error:', error.message);
     return { ok: false, error: error.message };
   }
-  console.log('[supabase test] rows:', data);
   return { ok: true, rows: data };
 }
