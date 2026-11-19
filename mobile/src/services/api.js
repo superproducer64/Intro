@@ -143,6 +143,18 @@ export async function appleSignIn(identityToken, name, email) {
 export async function deleteAccount() {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
+
+  // Remove uploaded media first. Deleting storage rows via SQL would orphan the files.
+  for (const bucket of ['profile-photos', 'profile-videos']) {
+    const { data: files } = await supabase.storage.from(bucket).list(user.id, { limit: 1000 });
+    if (files?.length) {
+      const { error: removeError } = await supabase.storage
+        .from(bucket)
+        .remove(files.map((f) => `${user.id}/${f.name}`));
+      if (removeError) throw new Error(removeError.message);
+    }
+  }
+
   const { error } = await supabase.rpc('delete_user');
   if (error) throw new Error(error.message);
   await logout();
