@@ -1,5 +1,6 @@
 // src/services/supabase.js
 import 'react-native-url-polyfill/auto';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
@@ -20,13 +21,27 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
+// React Native apps don't get Supabase's token-refresh timer for free: on web
+// it rides the browser's visibility/focus events, but on native nothing
+// drives it unless we wire AppState ourselves. Without this, the refresh
+// timer stalls while the app is backgrounded, the access token silently
+// expires, and every screen that was already open keeps rendering as if the
+// user were still signed in — api.getUser() just starts returning null
+// underneath it (surfacing as "Not signed in" errors, or silent no-ops on
+// any handler that checks `if (!user) return;` without alerting).
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') {
+    supabase.auth.startAutoRefresh();
+  } else {
+    supabase.auth.stopAutoRefresh();
+  }
+});
+
 // TEMPORARY — Scene 6 Shot 1 verification only. Remove once auth is wired to Supabase.
 export async function testSupabaseConnection() {
   const { data, error } = await supabase.from('profiles').select('name, personality_type').limit(5);
   if (error) {
-    console.log('[supabase test] error:', error.message);
     return { ok: false, error: error.message };
   }
-  console.log('[supabase test] rows:', data);
   return { ok: true, rows: data };
 }

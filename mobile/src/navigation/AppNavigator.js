@@ -1,50 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
-import * as api from '../services/api';
 
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterScreen from '../screens/Auth/RegisterScreen';
 import ProfileSetupScreen from '../screens/Profile/ProfileSetupScreen';
-import DiscoverScreen from '../screens/Discover/DiscoverScreen';
+import HomeScreen from '../screens/HomeScreen';
 import MatchesScreen from '../screens/Matches/MatchesScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
-import VideoCallScreen from '../screens/VideoCall/VideoCallScreen';
+// import VideoCallScreen from '../screens/VideoCall/VideoCallScreen';
 import ExperiencesScreen from '../screens/Experiences/ExperiencesScreen';
 import CafeRoomScreen from '../screens/Experiences/CafeRoomScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import ViewProfileScreen from '../screens/Profile/ViewProfileScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
+import NotificationsScreen from '../screens/Settings/NotificationsScreen';
+import PrivacyScreen from '../screens/Settings/PrivacyScreen';
 import PrivacyPolicyScreen from '../screens/Legal/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/Legal/TermsOfServiceScreen';
 import GuidelinesGate from '../components/GuidelinesGate';
+import AgeGate from '../components/AgeGate';
+
+// pivot/circles — new screens
+import CircleScreen from '../screens/Circles/CircleScreen';
+import ExploreScreen from '../screens/Explore/ExploreScreen';
+import SessionScreen from '../screens/Sessions/SessionScreen';
+import CirclesScreen from '../screens/CirclesScreen';
+import PromptsScreen from '../screens/PromptsScreen';
 
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Tab bar display text — kept separate from the route name ("Experiences")
-// so navigation elsewhere in the app is unaffected. "Café" matches what the
-// screen itself is already titled and is the widest label by a wide margin
-// (~55-65pt vs ~19-24pt at fontSize 10), so shortening it is what actually
-// creates visible breathing room between tabs — see AppNavigator tab-bar
-// width calculations; padding on already-centered flex content does not.
-const TAB_LABELS = { Discover: 'Close', Matches: 'Match', Experiences: 'Café', Profile: 'Me' };
+// pivot/circles — tab labels updated for Circles pivot (Prototype D)
+const TAB_LABELS = { Home: 'Home', Matches: 'Circles', Experiences: 'Café', Profile: 'Me' };
 
-function TabIcon({ label, focused, badgeCount }) {
-  const icons = { Discover: '🔍', Matches: '💜', Experiences: '☕', Profile: '👤' };
+function TabIcon({ label, focused }) {
+  const icons = { Home: '🏠', Matches: '⭕', Experiences: '☕', Profile: '👤' };
   return (
     <View style={styles.tabItem}>
       <View>
         <Text style={styles.tabIcon}>{icons[label]}</Text>
-        {badgeCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text>
-          </View>
-        )}
       </View>
       <Text
         style={[styles.tabLabel, focused && styles.tabLabelActive]}
@@ -61,9 +60,6 @@ function TabIcon({ label, focused, badgeCount }) {
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const bottomInset = Math.max(insets.bottom, 12);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => api.addUnreadCountListener(setUnreadCount), []);
 
   return (
     <Tab.Navigator
@@ -72,12 +68,12 @@ function MainTabs() {
         tabBarStyle: [styles.tabBar, { height: 56 + bottomInset, paddingBottom: bottomInset }],
         tabBarShowLabel: false,
         tabBarIcon: ({ focused }) => (
-          <TabIcon label={route.name} focused={focused} badgeCount={route.name === 'Matches' ? unreadCount : 0} />
+          <TabIcon label={route.name} focused={focused} />
         ),
       })}
     >
-      <Tab.Screen name="Discover" component={DiscoverScreen} />
-      <Tab.Screen name="Matches" component={MatchesScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Matches" component={CirclesScreen} />
       <Tab.Screen name="Experiences" component={ExperiencesScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
@@ -86,24 +82,40 @@ function MainTabs() {
 
 /**
  * AuthenticatedStack — wraps ALL post-login screens (tabs AND Chat/Settings)
- * inside a single GuidelinesGate so there is no navigation path that
- * bypasses community-guidelines acceptance, including direct navigations
- * to Chat via deep-link or programmatic navigate().
+ * inside a single AgeGate + GuidelinesGate so there is no navigation path
+ * that bypasses 18+ verification or community-guidelines acceptance,
+ * including direct navigations to Chat via deep-link or programmatic
+ * navigate(), a fresh signup, a returning login, or a restored session on
+ * cold start — this is the one place all of those paths converge (see
+ * AppNavigator below: every route to "Main" passes through here).
+ * AgeGate is outermost: age verification is the more fundamental compliance
+ * requirement and gates even the guidelines screen itself.
  */
 function AuthenticatedStack() {
   return (
-    <GuidelinesGate>
-      <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
-        <AuthStack.Screen name="Main" component={MainTabs} />
-        <AuthStack.Screen name="Chat" component={ChatScreen} />
-        <AuthStack.Screen name="ViewProfile" component={ViewProfileScreen} />
-        <AuthStack.Screen name="VideoCall" component={VideoCallScreen} options={{ presentation: 'fullScreenModal' }} />
-        <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
-        <AuthStack.Screen name="Settings" component={SettingsScreen} />
-        <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-        <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
-      </AuthStack.Navigator>
-    </GuidelinesGate>
+    <AgeGate>
+      <GuidelinesGate>
+        <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
+          <AuthStack.Screen name="Main" component={MainTabs} />
+          <AuthStack.Screen name="Chat" component={ChatScreen} />
+          <AuthStack.Screen name="ViewProfile" component={ViewProfileScreen} />
+          {/* <AuthStack.Screen name="VideoCall" component={VideoCallScreen} options={{ presentation: 'fullScreenModal' }} /> */}
+          <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
+          <AuthStack.Screen name="Settings" component={SettingsScreen} />
+          <AuthStack.Screen name="Notifications" component={NotificationsScreen} />
+          <AuthStack.Screen name="Privacy" component={PrivacyScreen} />
+          <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+
+          {/* pivot/circles — new screens */}
+          <AuthStack.Screen name="Circle" component={CircleScreen} />
+          <AuthStack.Screen name="Explore" component={ExploreScreen} />
+          <AuthStack.Screen name="Session" component={SessionScreen} />
+          <AuthStack.Screen name="Circles" component={CirclesScreen} />
+          <AuthStack.Screen name="Prompts" component={PromptsScreen} />
+        </AuthStack.Navigator>
+      </GuidelinesGate>
+    </AgeGate>
   );
 }
 
@@ -133,12 +145,6 @@ const styles = StyleSheet.create({
   },
   tabItem: { alignItems: 'center', gap: 4 },
   tabIcon: { fontSize: 22 },
-  badge: {
-    position: 'absolute', top: -4, right: -10,
-    minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3,
-    backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
-  },
-  badgeText: { fontSize: 10, color: '#fff', fontWeight: 'bold' },
   tabLabel: { fontSize: 10, color: COLORS.textMuted },
   tabLabelActive: { color: COLORS.primary, fontWeight: '600' },
 });

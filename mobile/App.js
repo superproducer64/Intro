@@ -30,7 +30,7 @@ function AppMain() {
           api.refreshUnreadCount();
         }
       } catch (e) {
-        console.warn('initAuth failed, proceeding as logged out:', e.message);
+        console.warn('[DEV] init error:', e.message);
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -97,11 +97,6 @@ function AppMain() {
   );
 }
 
-// Explicit literal box instead of StyleSheet.absoluteFillObject's position:
-// 'absolute' + top/left/right/bottom:0 stretch — the latter was confirmed
-// (via on-device onLayout logging) to collapse to content height and
-// bottom-anchor instead of filling the screen. Literal width/height/top/left
-// don't depend on that stretch behavior at all.
 const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 
 const styles = StyleSheet.create({

@@ -140,9 +140,42 @@ export async function appleSignIn(identityToken, name, email) {
   return { ...data, isNewUser: !profile?.birthdate };
 }
 
+// Lightweight, dedicated check for the 18+ onboarding gate (AgeGate) — fetches
+// only the birthdate column rather than the full profile payload getProfile()
+// returns, since this runs on every cold start, login, and signup before the
+// rest of the app is reachable. Server-verified: a NULL birthdate means the
+// profiles row has never had age/onboarding completed (register() returns
+// before writing birthdate when email confirmation is pending), regardless of
+// what a device's local storage might otherwise claim.
+export async function hasCompletedAgeOnboarding() {
+  const user = getUser();
+  if (!user) return false;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('birthdate')
+    .eq('id', user.id)
+    .single();
+  if (error) throw new Error(error.message);
+
+  return !!data?.birthdate;
+}
+
 export async function deleteAccount() {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
+
+  // Remove uploaded media first. Deleting storage rows via SQL would orphan the files.
+  for (const bucket of ['profile-photos', 'profile-videos']) {
+    const { data: files } = await supabase.storage.from(bucket).list(user.id, { limit: 1000 });
+    if (files?.length) {
+      const { error: removeError } = await supabase.storage
+        .from(bucket)
+        .remove(files.map((f) => `${user.id}/${f.name}`));
+      if (removeError) throw new Error(removeError.message);
+    }
+  }
+
   const { error } = await supabase.rpc('delete_user');
   if (error) throw new Error(error.message);
   await logout();
@@ -550,13 +583,20 @@ export function unsubscribeFromVideoCalls() {
 }
 
 // ==================== SAFETY (report & block) ====================
-export async function reportUser(reportedUserId, reason, details) {
+// `context` optionally ties the report to specific content:
+// { type: 'cafe_message' | 'prompt_response', id, excerpt }
+export async function reportUser(reportedUserId, reason, details, context) {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
 
-  const { error } = await supabase
-    .from('reports')
-    .insert({ reporter_id: user.id, reported_id: reportedUserId, reason, details });
+  const row = { reporter_id: user.id, reported_id: reportedUserId, reason, details };
+  if (context?.type) {
+    row.content_type = context.type;
+    row.content_id = context.id ?? null;
+    row.content_excerpt = context.excerpt ? String(context.excerpt).slice(0, 500) : null;
+  }
+
+  const { error } = await supabase.from('reports').insert(row);
   if (error) throw new Error(error.message);
 }
 
@@ -567,6 +607,39 @@ export async function blockUser(blockedUserId) {
   const { error } = await supabase
     .from('blocks')
     .insert({ blocker_id: user.id, blocked_id: blockedUserId });
+  if (error) throw new Error(error.message);
+}
+
+// For the Privacy settings screen — lets a user review and undo their own
+// blocks. RLS ("manage own blocks": auth.uid() = blocker_id) already scopes
+// this to rows the caller created, so no new policy was needed.
+export async function getBlockedUsers() {
+  const user = getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('blocked_id, created_at, blocked:profiles!blocks_blocked_id_fkey(id, name)')
+    .eq('blocker_id', user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((row) => ({
+    id: row.blocked_id,
+    name: row.blocked?.name || 'Deleted user',
+    blockedAt: row.created_at,
+  }));
+}
+
+export async function unblockUser(blockedUserId) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { error } = await supabase
+    .from('blocks')
+    .delete()
+    .eq('blocker_id', user.id)
+    .eq('blocked_id', blockedUserId);
   if (error) throw new Error(error.message);
 }
 
@@ -933,8 +1006,6 @@ function uploadLocalFileWithProgress(bucket, path, localUri, contentType, onProg
         'x-upsert': 'false',
       },
       onProgress: ({ bytesSent, totalBytes }) => {
-        // TEMP DIAGNOSTIC — remove once on-device testing confirms real percentage updates.
-        console.log('[uploadVideo progress]', bytesSent, '/', totalBytes);
         if (onProgress && totalBytes > 0) onProgress(bytesSent / totalBytes);
       },
     })
