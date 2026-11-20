@@ -237,7 +237,11 @@ export default function PromptsScreen({ navigation }) {
       await load();
     } catch (e) {
       console.warn('sendAnswer:', e?.message || e);
-      Alert.alert('Could not send', 'Something went wrong. Please try again.');
+      if (e?.message?.includes('blocked_content_filter')) {
+        Alert.alert('Not allowed', 'That answer contains language we don’t allow. Please rephrase it.');
+      } else {
+        Alert.alert('Could not send', 'Something went wrong. Please try again.');
+      }
     } finally {
       setSubmittingId(null);
     }

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList,
-  Image, KeyboardAvoidingView, Platform, ActivityIndicator, AppState,
+  Image, KeyboardAvoidingView, Platform, ActivityIndicator, AppState, Alert,
 } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
@@ -108,6 +108,15 @@ export default function CafeRoomScreen({ route, navigation }) {
       });
     } catch (e) {
       console.error('Send cafe message error:', e);
+      // Restore the draft — it was cleared optimistically above, and silently
+      // discarding a rejected message (content filter or otherwise) with no
+      // feedback just makes the message vanish from the sender's perspective.
+      setText(trimmed);
+      if (e?.message?.includes('blocked_content_filter')) {
+        Alert.alert('Not allowed', 'That message contains language we don’t allow. Please rephrase it.');
+      } else {
+        Alert.alert('Could not send', 'Something went wrong. Please try again.');
+      }
     }
   };
 

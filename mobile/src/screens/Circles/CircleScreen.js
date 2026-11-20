@@ -228,7 +228,11 @@ export default function CircleScreen({ route, navigation }) {
       await fetchSessions();
     } catch (e) {
       console.warn('submitSession:', e?.message || e);
-      Alert.alert('Could not schedule', 'Something went wrong. Please try again.');
+      if (e?.message?.includes('blocked_content_filter')) {
+        Alert.alert('Not allowed', 'That title contains language we don’t allow. Please rephrase it.');
+      } else {
+        Alert.alert('Could not schedule', 'Something went wrong. Please try again.');
+      }
     } finally {
       setSavingForm(false);
     }
@@ -258,7 +262,11 @@ export default function CircleScreen({ route, navigation }) {
       await Promise.all([fetchPrompt(), fetchHostPrompts()]);
     } catch (e) {
       console.warn('submitPrompt:', e?.message || e);
-      Alert.alert('Could not add prompt', 'Something went wrong. Please try again.');
+      if (e?.message?.includes('blocked_content_filter')) {
+        Alert.alert('Not allowed', 'That prompt contains language we don’t allow. Please rephrase it.');
+      } else {
+        Alert.alert('Could not add prompt', 'Something went wrong. Please try again.');
+      }
     } finally {
       setSavingForm(false);
     }
