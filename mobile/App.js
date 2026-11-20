@@ -22,9 +22,6 @@ function AppMain() {
     let cancelled = false;
     async function init() {
       try {
-        // DEV ONLY — remove before shipping
-        const loginResult = await api.login('test@intro.dev', 'TestIntro123!');
-
         const session = await api.initAuth();
         if (session) {
           setInitialRoute('Main');

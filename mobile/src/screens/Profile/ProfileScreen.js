@@ -163,7 +163,10 @@ export default function ProfileScreen({ navigation }) {
 
   const handleAddPhotos = async () => {
     const user = api.getUser();
-    if (!user) return;
+    if (!user) {
+      Alert.alert('Signed out', 'Your session expired. Please log out and back in.');
+      return;
+    }
     const remaining = api.MAX_PHOTOS - photos.length;
     if (remaining <= 0) return;
 
@@ -224,7 +227,10 @@ export default function ProfileScreen({ navigation }) {
 
   const handleAddVideo = async () => {
     const user = api.getUser();
-    if (!user) return;
+    if (!user) {
+      Alert.alert('Signed out', 'Your session expired. Please log out and back in.');
+      return;
+    }
 
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -274,7 +280,10 @@ export default function ProfileScreen({ navigation }) {
         style: 'destructive',
         onPress: async () => {
           const user = api.getUser();
-          if (!user) return;
+          if (!user) {
+            Alert.alert('Signed out', 'Your session expired. Please log out and back in.');
+            return;
+          }
           try {
             await api.deleteVideo(user.id, api.videoStoragePath(video));
             setVideo(null);
