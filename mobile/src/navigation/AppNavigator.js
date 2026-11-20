@@ -20,6 +20,7 @@ import SettingsScreen from '../screens/Settings/SettingsScreen';
 import PrivacyPolicyScreen from '../screens/Legal/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/Legal/TermsOfServiceScreen';
 import GuidelinesGate from '../components/GuidelinesGate';
+import AgeGate from '../components/AgeGate';
 
 // pivot/circles — new screens
 import CircleScreen from '../screens/Circles/CircleScreen';
@@ -79,31 +80,38 @@ function MainTabs() {
 
 /**
  * AuthenticatedStack — wraps ALL post-login screens (tabs AND Chat/Settings)
- * inside a single GuidelinesGate so there is no navigation path that
- * bypasses community-guidelines acceptance, including direct navigations
- * to Chat via deep-link or programmatic navigate().
+ * inside a single AgeGate + GuidelinesGate so there is no navigation path
+ * that bypasses 18+ verification or community-guidelines acceptance,
+ * including direct navigations to Chat via deep-link or programmatic
+ * navigate(), a fresh signup, a returning login, or a restored session on
+ * cold start — this is the one place all of those paths converge (see
+ * AppNavigator below: every route to "Main" passes through here).
+ * AgeGate is outermost: age verification is the more fundamental compliance
+ * requirement and gates even the guidelines screen itself.
  */
 function AuthenticatedStack() {
   return (
-    <GuidelinesGate>
-      <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
-        <AuthStack.Screen name="Main" component={MainTabs} />
-        <AuthStack.Screen name="Chat" component={ChatScreen} />
-        <AuthStack.Screen name="ViewProfile" component={ViewProfileScreen} />
-        {/* <AuthStack.Screen name="VideoCall" component={VideoCallScreen} options={{ presentation: 'fullScreenModal' }} /> */}
-        <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
-        <AuthStack.Screen name="Settings" component={SettingsScreen} />
-        <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-        <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+    <AgeGate>
+      <GuidelinesGate>
+        <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: COLORS.bg } }}>
+          <AuthStack.Screen name="Main" component={MainTabs} />
+          <AuthStack.Screen name="Chat" component={ChatScreen} />
+          <AuthStack.Screen name="ViewProfile" component={ViewProfileScreen} />
+          {/* <AuthStack.Screen name="VideoCall" component={VideoCallScreen} options={{ presentation: 'fullScreenModal' }} /> */}
+          <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
+          <AuthStack.Screen name="Settings" component={SettingsScreen} />
+          <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
 
-        {/* pivot/circles — new screens */}
-        <AuthStack.Screen name="Circle" component={CircleScreen} />
-        <AuthStack.Screen name="Explore" component={ExploreScreen} />
-        <AuthStack.Screen name="Session" component={SessionScreen} />
-        <AuthStack.Screen name="Circles" component={CirclesScreen} />
-        <AuthStack.Screen name="Prompts" component={PromptsScreen} />
-      </AuthStack.Navigator>
-    </GuidelinesGate>
+          {/* pivot/circles — new screens */}
+          <AuthStack.Screen name="Circle" component={CircleScreen} />
+          <AuthStack.Screen name="Explore" component={ExploreScreen} />
+          <AuthStack.Screen name="Session" component={SessionScreen} />
+          <AuthStack.Screen name="Circles" component={CirclesScreen} />
+          <AuthStack.Screen name="Prompts" component={PromptsScreen} />
+        </AuthStack.Navigator>
+      </GuidelinesGate>
+    </AgeGate>
   );
 }
 

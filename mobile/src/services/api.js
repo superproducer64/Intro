@@ -140,6 +140,27 @@ export async function appleSignIn(identityToken, name, email) {
   return { ...data, isNewUser: !profile?.birthdate };
 }
 
+// Lightweight, dedicated check for the 18+ onboarding gate (AgeGate) — fetches
+// only the birthdate column rather than the full profile payload getProfile()
+// returns, since this runs on every cold start, login, and signup before the
+// rest of the app is reachable. Server-verified: a NULL birthdate means the
+// profiles row has never had age/onboarding completed (register() returns
+// before writing birthdate when email confirmation is pending), regardless of
+// what a device's local storage might otherwise claim.
+export async function hasCompletedAgeOnboarding() {
+  const user = getUser();
+  if (!user) return false;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('birthdate')
+    .eq('id', user.id)
+    .single();
+  if (error) throw new Error(error.message);
+
+  return !!data?.birthdate;
+}
+
 export async function deleteAccount() {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
