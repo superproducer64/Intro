@@ -17,6 +17,8 @@ import CafeRoomScreen from '../screens/Experiences/CafeRoomScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 import ViewProfileScreen from '../screens/Profile/ViewProfileScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
+import NotificationsScreen from '../screens/Settings/NotificationsScreen';
+import PrivacyScreen from '../screens/Settings/PrivacyScreen';
 import PrivacyPolicyScreen from '../screens/Legal/PrivacyPolicyScreen';
 import TermsOfServiceScreen from '../screens/Legal/TermsOfServiceScreen';
 import GuidelinesGate from '../components/GuidelinesGate';
@@ -100,6 +102,8 @@ function AuthenticatedStack() {
           {/* <AuthStack.Screen name="VideoCall" component={VideoCallScreen} options={{ presentation: 'fullScreenModal' }} /> */}
           <AuthStack.Screen name="CafeRoom" component={CafeRoomScreen} />
           <AuthStack.Screen name="Settings" component={SettingsScreen} />
+          <AuthStack.Screen name="Notifications" component={NotificationsScreen} />
+          <AuthStack.Screen name="Privacy" component={PrivacyScreen} />
           <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
 

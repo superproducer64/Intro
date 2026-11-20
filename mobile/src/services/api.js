@@ -610,6 +610,39 @@ export async function blockUser(blockedUserId) {
   if (error) throw new Error(error.message);
 }
 
+// For the Privacy settings screen — lets a user review and undo their own
+// blocks. RLS ("manage own blocks": auth.uid() = blocker_id) already scopes
+// this to rows the caller created, so no new policy was needed.
+export async function getBlockedUsers() {
+  const user = getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('blocked_id, created_at, blocked:profiles!blocks_blocked_id_fkey(id, name)')
+    .eq('blocker_id', user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+
+  return (data || []).map((row) => ({
+    id: row.blocked_id,
+    name: row.blocked?.name || 'Deleted user',
+    blockedAt: row.created_at,
+  }));
+}
+
+export async function unblockUser(blockedUserId) {
+  const user = getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { error } = await supabase
+    .from('blocks')
+    .delete()
+    .eq('blocker_id', user.id)
+    .eq('blocked_id', blockedUserId);
+  if (error) throw new Error(error.message);
+}
+
 // ==================== OTHER ====================
 export async function getProfile() {
   const user = getUser();
