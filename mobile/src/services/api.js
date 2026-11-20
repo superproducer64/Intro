@@ -562,13 +562,20 @@ export function unsubscribeFromVideoCalls() {
 }
 
 // ==================== SAFETY (report & block) ====================
-export async function reportUser(reportedUserId, reason, details) {
+// `context` optionally ties the report to specific content:
+// { type: 'cafe_message' | 'prompt_response', id, excerpt }
+export async function reportUser(reportedUserId, reason, details, context) {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
 
-  const { error } = await supabase
-    .from('reports')
-    .insert({ reporter_id: user.id, reported_id: reportedUserId, reason, details });
+  const row = { reporter_id: user.id, reported_id: reportedUserId, reason, details };
+  if (context?.type) {
+    row.content_type = context.type;
+    row.content_id = context.id ?? null;
+    row.content_excerpt = context.excerpt ? String(context.excerpt).slice(0, 500) : null;
+  }
+
+  const { error } = await supabase.from('reports').insert(row);
   if (error) throw new Error(error.message);
 }
 

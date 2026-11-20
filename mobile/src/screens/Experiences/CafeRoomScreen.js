@@ -7,6 +7,7 @@ import {
 import { COLORS, SPACING, BORDER_RADIUS } from '../../constants/theme';
 import * as api from '../../services/api';
 import { playMessageSound } from '../../utils/notificationSound';
+import ReportBlockModal from '../../components/ReportBlockModal';
 
 export default function CafeRoomScreen({ route, navigation }) {
   const { roomId, roomTitle } = route.params;
@@ -14,6 +15,7 @@ export default function CafeRoomScreen({ route, navigation }) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [reportTarget, setReportTarget] = useState(null);
   const flatListRef = useRef();
   const participantsRef = useRef([]);
   const currentUser = api.getUser();
@@ -129,7 +131,19 @@ export default function CafeRoomScreen({ route, navigation }) {
     const isMine = item.userId === currentUser?.id;
     return (
       <View style={[styles.messageBubble, isMine ? styles.myMessage : styles.theirMessage]}>
-        {!isMine && <Text style={styles.senderName}>{nameFor(item.userId)}</Text>}
+        {!isMine && (
+          <View style={styles.senderRow}>
+            <Text style={styles.senderName}>{nameFor(item.userId)}</Text>
+            <TouchableOpacity
+              onPress={() => setReportTarget({ userId: item.userId, name: nameFor(item.userId), message: item })}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Report or block this person"
+            >
+              <Text style={styles.reportLink}>Report / Block</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <Text style={[styles.messageText, isMine && styles.myMessageText]}>{item.content}</Text>
         <Text style={styles.messageTime}>
           {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -193,6 +207,25 @@ export default function CafeRoomScreen({ route, navigation }) {
           <Text style={styles.sendIcon}>↑</Text>
         </TouchableOpacity>
       </View>
+
+      <ReportBlockModal
+        visible={!!reportTarget}
+        userId={reportTarget?.userId}
+        userName={reportTarget?.name}
+        context={reportTarget ? {
+          type: 'cafe_message',
+          id: reportTarget.message?.id,
+          excerpt: reportTarget.message?.content,
+        } : undefined}
+        onClose={() => setReportTarget(null)}
+        onBlocked={() => {
+          const blockedId = reportTarget?.userId;
+          setReportTarget(null);
+          // Hide their messages and presence now; RLS keeps them hidden on reload.
+          setMessages((prev) => prev.filter((m) => m.userId !== blockedId));
+          setParticipants((prev) => prev.filter((p) => p.userId !== blockedId));
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -225,7 +258,9 @@ const styles = StyleSheet.create({
   messageBubble: { maxWidth: '75%', padding: SPACING.sm, borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.sm },
   myMessage: { alignSelf: 'flex-end', backgroundColor: COLORS.primary },
   theirMessage: { alignSelf: 'flex-start', backgroundColor: COLORS.bgLight, borderWidth: 1, borderColor: COLORS.border },
-  senderName: { fontSize: 11, color: COLORS.textMuted, marginBottom: 2, fontWeight: '600' },
+  senderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: SPACING.sm, marginBottom: 2 },
+  senderName: { fontSize: 11, color: COLORS.textMuted, fontWeight: '600' },
+  reportLink: { fontSize: 11, color: COLORS.textMuted },
   messageText: { fontSize: 15, color: COLORS.text, lineHeight: 20 },
   myMessageText: { color: '#fff' },
   messageTime: { fontSize: 11, color: COLORS.textMuted, marginTop: 4, alignSelf: 'flex-end' },

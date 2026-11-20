@@ -27,6 +27,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../services/supabase';
+import ReportBlockModal from '../components/ReportBlockModal';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const COLORS = {
@@ -44,7 +45,7 @@ const MAX_LEN = 500;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function PromptCard({ item, userId, draft, onChangeDraft, submitting, onSend }) {
+function PromptCard({ item, userId, draft, onChangeDraft, submitting, onSend, onReport }) {
   const { circle, prompt, responses } = item;
   const mine = responses.find((r) => r.user_id === userId);
   const others = responses.filter((r) => r.user_id !== userId);
@@ -74,7 +75,17 @@ function PromptCard({ item, userId, draft, onChangeDraft, submitting, onSend }) 
           </Text>
           {others.map((r) => (
             <View key={r.id} style={styles.otherAnswer}>
-              <Text style={styles.otherName}>{r.name}</Text>
+              <View style={styles.otherHeader}>
+                <Text style={styles.otherName}>{r.name}</Text>
+                <TouchableOpacity
+                  onPress={() => onReport(r)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Report or block ${r.name}`}
+                >
+                  <Text style={styles.reportLink}>Report / Block</Text>
+                </TouchableOpacity>
+              </View>
               <Text style={styles.answerBody}>{r.body}</Text>
             </View>
           ))}
@@ -124,6 +135,7 @@ export default function PromptsScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [drafts, setDrafts]         = useState({});
   const [submittingId, setSubmittingId] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -280,11 +292,24 @@ export default function PromptsScreen({ navigation }) {
                 onChangeDraft={(t) => setDrafts((d) => ({ ...d, [item.prompt.id]: t }))}
                 submitting={submittingId === item.prompt.id}
                 onSend={() => sendAnswer(item.prompt.id)}
+                onReport={setReportTarget}
               />
             ))
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <ReportBlockModal
+        visible={!!reportTarget}
+        userId={reportTarget?.user_id}
+        userName={reportTarget?.name}
+        context={reportTarget ? { type: 'prompt_response', id: reportTarget.id, excerpt: reportTarget.body } : undefined}
+        onClose={() => setReportTarget(null)}
+        onBlocked={() => {
+          setReportTarget(null);
+          load(); // blocked user's answers are now hidden by RLS
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -393,7 +418,9 @@ const styles = StyleSheet.create({
     paddingTop:     12,
     gap:            4,
   },
+  otherHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   otherName: { fontSize: 13, fontWeight: '700', color: COLORS.fg },
+  reportLink: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
 
   // Empty
   empty: {

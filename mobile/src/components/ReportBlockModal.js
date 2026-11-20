@@ -12,7 +12,7 @@ const REPORT_REASONS = [
   'Other',
 ];
 
-export default function ReportBlockModal({ visible, onClose, userId, userName, matchId, onBlocked, onUnmatched }) {
+export default function ReportBlockModal({ visible, onClose, userId, userName, matchId, onBlocked, onUnmatched, context }) {
   const [mode, setMode] = useState(null);
   const [reason, setReason] = useState('');
   const [details, setDetails] = useState('');
@@ -70,7 +70,7 @@ export default function ReportBlockModal({ visible, onClose, userId, userName, m
     }
     setSubmitting(true);
     try {
-      await api.reportUser(userId, reason, details);
+      await api.reportUser(userId, reason, details, context);
       Alert.alert('Reported', 'Thank you for your report. We will review it shortly.');
       setMode(null);
       setReason('');
