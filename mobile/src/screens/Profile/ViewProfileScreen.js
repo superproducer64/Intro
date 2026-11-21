@@ -54,8 +54,7 @@ export default function ViewProfileScreen({ route, navigation }) {
               <Text style={styles.name}>{profile.name}{profile.age ? `, ${profile.age}` : ''}</Text>
               {profile.location && <Text style={styles.detail}>📍 {profile.location}</Text>}
               {profile.personality_type && <Text style={styles.detail}>{profile.personality_type}</Text>}
-              {profile.looking_for && <Text style={styles.detail}>Looking for: {profile.looking_for}</Text>}
-              {profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+                  {profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
               {profile.interests?.length > 0 && (
                 <View style={styles.interestRow}>

@@ -66,11 +66,22 @@ function birthdateToAge(birthdate) {
 }
 
 // ==================== AUTH ====================
-export async function register({ name, email, password, age, bio, personalityType, lookingFor, interests, location }) {
+// Register only collects what's legally/structurally required before an account
+// can exist: name, age (18+ gate, enforced client-side here and again by the DB
+// CHECK constraint), email, password. Everything else (location, personality,
+// bio, interests) is collected exactly once, later, in ProfileSetupScreen —
+// never here — because when email confirmation is required (the common case)
+// there is no session yet to write a profile row against, and anything asked
+// at this step would otherwise be silently discarded.
+//
+// age/name are carried in the auth user's metadata (not just written straight
+// to `profiles`) so they survive the email-confirmation gap even when no
+// session exists yet; ProfileSetupScreen/updateProfile recovers them from there.
+export async function register({ name, email, password, age }) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { name } },
+    options: { data: { name, age } },
   });
   if (error) throw new Error(error.message);
 
@@ -79,17 +90,10 @@ export async function register({ name, email, password, age, bio, personalityTyp
     return { ...data, needsEmailConfirmation: true };
   }
 
-  const profileUpdates = {};
-  if (age != null) profileUpdates.birthdate = ageToBirthdate(age);
-  if (bio) profileUpdates.bio = bio;
-  if (personalityType) profileUpdates.personality_type = personalityType;
-  if (lookingFor) profileUpdates.looking_for = lookingFor;
-  if (location) profileUpdates.location = location;
-
-  if (Object.keys(profileUpdates).length > 0) {
+  if (age != null) {
     const { error: profileError } = await supabase
       .from('profiles')
-      .update(profileUpdates)
+      .update({ birthdate: ageToBirthdate(age) })
       .eq('id', data.user.id);
     if (profileError) {
       if (profileError.message.includes('profiles_birthdate_min_age')) {
@@ -97,16 +101,6 @@ export async function register({ name, email, password, age, bio, personalityTyp
       }
       throw new Error(profileError.message);
     }
-  }
-
-  try {
-    if (interests && interests.length > 0) {
-      const interestRows = interests.map(interest => ({ user_id: data.user.id, interest }));
-      const { error: interestsError } = await supabase.from('interests').insert(interestRows);
-      if (interestsError) console.warn('Interests insert failed:', interestsError.message);
-    }
-  } catch (interestEx) {
-    console.warn('Interests insert threw:', interestEx.message);
   }
 
   return data;
@@ -600,23 +594,35 @@ export async function getProfile() {
   };
 }
 
-export async function updateProfile({ name, age, bio, location, personalityType, lookingFor } = {}) {
+// The single authoritative profile-completion call. ProfileSetupScreen calls
+// this once, after a real session exists, with whatever the user filled in.
+// If name/age never made it into `profiles` (the email-confirmation path,
+// where register() couldn't write them yet), they're recovered here from the
+// auth user's metadata so nothing has to be re-asked on screen.
+export async function updateProfile({ name, age, bio, location, personalityType, interests } = {}) {
   const user = getUser();
   if (!user) throw new Error('Not signed in');
 
   const updates = { updated_at: new Date().toISOString() };
-  if (name !== undefined) updates.name = name;
-  if (age !== undefined && age !== null) updates.birthdate = ageToBirthdate(age);
+  const metaName = name !== undefined ? name : user.user_metadata?.name;
+  const metaAge = age !== undefined && age !== null ? age : user.user_metadata?.age;
+  if (metaName !== undefined) updates.name = metaName;
+  if (metaAge !== undefined && metaAge !== null) updates.birthdate = ageToBirthdate(metaAge);
   if (bio !== undefined) updates.bio = bio;
   if (location !== undefined) updates.location = location;
   if (personalityType !== undefined) updates.personality_type = personalityType;
-  if (lookingFor !== undefined) updates.looking_for = lookingFor;
 
   const { error } = await supabase
     .from('profiles')
     .update(updates)
     .eq('id', user.id);
   if (error) throw new Error(error.message);
+
+  if (interests && interests.length > 0) {
+    const interestRows = interests.map((interest) => ({ user_id: user.id, interest }));
+    const { error: interestsError } = await supabase.from('interests').insert(interestRows);
+    if (interestsError) console.warn('Interests insert failed:', interestsError.message);
+  }
 }
 
 export async function getMessages(matchUserId) {

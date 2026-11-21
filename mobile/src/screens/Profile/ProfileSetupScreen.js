@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, ActivityIndicator } from 'react-native';
-import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES, LOOKING_FOR } from '../../constants/theme';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES, INTEREST_OPTIONS } from '../../constants/theme';
 import * as api from '../../services/api';
 
-export default function ProfileSetupScreen({ navigation, route }) {
-  // 'loading' while we check whether basic info already exists (email flow already
-  // collects it during registration) — 'info' asks for it, 'prompts' is the
-  // existing 3-prompt step that every new user goes through either way.
-  const [step, setStep] = useState('loading');
+// The single place (besides name/age at account creation) where profile
+// details are ever collected. Runs once, right after a real session exists,
+// so it's never skipped and never re-asked — see api.register()/updateProfile()
+// for why name/age aren't repeated here even for users who had to confirm
+// their email first (those get recovered server-side from auth metadata).
+export default function ProfileSetupScreen({ navigation }) {
+  const [step, setStep] = useState('details');
 
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
   const [location, setLocation] = useState('');
   const [personality, setPersonality] = useState('');
   const [bio, setBio] = useState('');
-  const [lookingFor, setLookingFor] = useState('');
+  const [interests, setInterests] = useState([]);
   const [savingInfo, setSavingInfo] = useState(false);
 
   const [selectedPrompts, setSelectedPrompts] = useState([
@@ -24,43 +24,22 @@ export default function ProfileSetupScreen({ navigation, route }) {
   ]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const profile = await api.getProfile();
-        if (profile?.age == null) {
-          setName(profile?.name || route.params?.prefillName || '');
-          setStep('info');
-        } else {
-          setStep('prompts');
-        }
-      } catch (e) {
-        console.error('ProfileSetup: load profile error:', e);
-        setName(route.params?.prefillName || '');
-        setStep('info');
-      }
-    })();
-  }, []);
+  const toggleInterest = (i) => {
+    setInterests(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
+  };
 
   const handleSaveInfo = async () => {
-    if (!name.trim() || !age) {
-      Alert.alert('Error', 'Please fill in your name and age');
-      return;
-    }
-    const ageNum = parseInt(age, 10);
-    if (isNaN(ageNum) || ageNum < 18 || ageNum > 120) {
-      Alert.alert('Error', 'Age must be between 18 and 120');
+    if (interests.length < 3) {
+      Alert.alert('Error', 'Please select at least 3 interests');
       return;
     }
     setSavingInfo(true);
     try {
       await api.updateProfile({
-        name: name.trim(),
-        age: ageNum,
         bio,
         location,
         personalityType: personality,
-        lookingFor,
+        interests,
       });
       setStep('prompts');
     } catch (e) {
@@ -103,18 +82,12 @@ export default function ProfileSetupScreen({ navigation, route }) {
     }
   };
 
-  if (step === 'loading') {
-    return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
-  }
-
-  if (step === 'info') {
+  if (step === 'details') {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Tell Us About You</Text>
         <Text style={styles.subtitle}>This helps others get to know the real you.</Text>
 
-        <TextInput style={styles.input} placeholder="Your Name" placeholderTextColor={COLORS.textMuted} value={name} onChangeText={setName} />
-        <TextInput style={styles.input} placeholder="Age" placeholderTextColor={COLORS.textMuted} value={age} onChangeText={setAge} keyboardType="numeric" />
         <TextInput style={styles.input} placeholder="Location (optional)" placeholderTextColor={COLORS.textMuted} value={location} onChangeText={setLocation} />
 
         <Text style={styles.label}>Personality Type</Text>
@@ -122,15 +95,6 @@ export default function ProfileSetupScreen({ navigation, route }) {
           {PERSONALITY_TYPES.map(p => (
             <TouchableOpacity key={p} style={[styles.option, personality === p && styles.optionActive]} onPress={() => setPersonality(p)}>
               <Text style={[styles.optionText, personality === p && styles.optionTextActive]}>{p}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={styles.label}>Looking For</Text>
-        <View style={styles.optionRow}>
-          {LOOKING_FOR.map(l => (
-            <TouchableOpacity key={l} style={[styles.option, lookingFor === l && styles.optionActive]} onPress={() => setLookingFor(l)}>
-              <Text style={[styles.optionText, lookingFor === l && styles.optionTextActive]}>{l}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -146,6 +110,15 @@ export default function ProfileSetupScreen({ navigation, route }) {
           maxLength={500}
         />
         <Text style={styles.charCount}>{bio.length}/500</Text>
+
+        <Text style={styles.label}>Interests — pick at least 3</Text>
+        <View style={styles.interestGrid}>
+          {INTEREST_OPTIONS.map(i => (
+            <TouchableOpacity key={i} style={[styles.interestTag, interests.includes(i) && styles.interestTagActive]} onPress={() => toggleInterest(i)}>
+              <Text style={[styles.interestText, interests.includes(i) && styles.interestTextActive]}>{i}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <TouchableOpacity
           style={[styles.saveButton, savingInfo && styles.buttonDisabled]}
@@ -221,6 +194,15 @@ const styles = StyleSheet.create({
   optionActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   optionText: { color: COLORS.textSecondary, fontSize: 14 },
   optionTextActive: { color: COLORS.text, fontWeight: '600' },
+  interestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.md },
+  interestTag: {
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.round, borderWidth: 1, borderColor: COLORS.border,
+    backgroundColor: COLORS.inputBg,
+  },
+  interestTagActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
+  interestText: { color: COLORS.textSecondary, fontSize: 14 },
+  interestTextActive: { color: COLORS.text, fontWeight: '600' },
   promptCard: {
     backgroundColor: COLORS.bgLight, borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md, marginBottom: SPACING.md,

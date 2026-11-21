@@ -51,4 +51,9 @@ export const PROMPTS = [
 ];
 
 export const PERSONALITY_TYPES = ['Introvert', 'Ambivert', 'Extrovert'];
-export const LOOKING_FOR = ['Friendship', 'Dating', 'Long-term', 'Not sure yet'];
+
+export const INTEREST_OPTIONS = [
+  'Books', 'Gaming', 'Cooking', 'Hiking', 'Art', 'Music',
+  'Movies', 'Photography', 'Writing', 'Yoga', 'Plants',
+  'Board Games', 'Anime', 'Podcasts', 'Crafts', 'Astronomy',
+];

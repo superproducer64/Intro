@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { NestableScrollContainer, NestableDraggableFlatList } from 'react-native-draggable-flatlist';
-import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES, LOOKING_FOR } from '../../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS, PROMPTS, PERSONALITY_TYPES } from '../../constants/theme';
 import * as api from '../../services/api';
 import InlineVideoPlayer from '../../components/InlineVideoPlayer';
 
@@ -35,7 +35,6 @@ export default function ProfileScreen({ navigation }) {
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
   const [personalityType, setPersonalityType] = useState('');
-  const [lookingFor, setLookingFor] = useState('');
   const [editPrompts, setEditPrompts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [photos, setPhotos] = useState([]);
@@ -53,7 +52,6 @@ export default function ProfileScreen({ navigation }) {
       setBio(data.bio || '');
       setLocation(data.location || '');
       setPersonalityType(data.personality_type || '');
-      setLookingFor(data.looking_for || '');
       setEditPrompts(buildEditPrompts(data.prompts));
       setVideo(data.video_url || null);
 
@@ -92,7 +90,6 @@ export default function ProfileScreen({ navigation }) {
         bio,
         location,
         personalityType,
-        lookingFor,
       });
 
       const filledPrompts = editPrompts.filter((p) => p.answer.trim());
@@ -338,19 +335,6 @@ export default function ProfileScreen({ navigation }) {
             ))}
           </View>
 
-          <Text style={styles.label}>Looking For</Text>
-          <View style={styles.optionRow}>
-            {LOOKING_FOR.map((l) => (
-              <TouchableOpacity
-                key={l}
-                style={[styles.option, lookingFor === l && styles.optionActive]}
-                onPress={() => setLookingFor(l)}
-              >
-                <Text style={[styles.optionText, lookingFor === l && styles.optionTextActive]}>{l}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
           <Text style={styles.label}>Your Prompts</Text>
           {editPrompts.map((prompt, index) => (
             <View key={index} style={styles.editPromptCard}>
@@ -387,7 +371,6 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.name}>{profile?.name}{profile?.age ? `, ${profile.age}` : ''}</Text>
           {profile?.location && <Text style={styles.detail}>📍 {profile.location}</Text>}
           {profile?.personality_type && <Text style={styles.detail}>{profile.personality_type}</Text>}
-          {profile?.looking_for && <Text style={styles.detail}>Looking for: {profile.looking_for}</Text>}
           {profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
           {profile?.interests?.length > 0 && (

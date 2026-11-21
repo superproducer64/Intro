@@ -5,33 +5,19 @@ import * as api from '../../services/api';
 
 const TOS_URL = 'https://intro-bgpstudioshou.replit.app/tos.html';
 
-const INTEREST_OPTIONS = [
-  'Books', 'Gaming', 'Cooking', 'Hiking', 'Art', 'Music',
-  'Movies', 'Photography', 'Writing', 'Yoga', 'Plants',
-  'Board Games', 'Anime', 'Podcasts', 'Crafts', 'Astronomy',
-];
-
-const PERSONALITY_TYPES = ['Introvert', 'Ambivert', 'Extrovert'];
-const LOOKING_FOR = ['Friendship', 'Dating', 'Long-term', 'Not sure yet'];
-
+// Register collects only what's needed to create an account: name, age
+// (18+ gate), email, password. Location/personality/bio/interests are
+// collected once, later, in ProfileSetupScreen — see api.register()'s
+// comment for why asking for them here would just get them discarded.
 export default function RegisterScreen({ navigation }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
-  const [location, setLocation] = useState('');
-  const [personality, setPersonality] = useState('');
-  const [bio, setBio] = useState('');
-  const [lookingFor, setLookingFor] = useState('');
-  const [interests, setInterests] = useState([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreedTos, setAgreedTos] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const toggleInterest = (i) => {
-    setInterests(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
-  };
 
   const nextStep = () => {
     if (step === 0 && (!name || !age)) {
@@ -44,10 +30,6 @@ export default function RegisterScreen({ navigation }) {
         Alert.alert('Error', 'Age must be between 18 and 120');
         return;
       }
-    }
-    if (step === 2 && interests.length < 3) {
-      Alert.alert('Error', 'Please select at least 3 interests');
-      return;
     }
     setStep(s => s + 1);
   };
@@ -77,11 +59,6 @@ export default function RegisterScreen({ navigation }) {
         email: email.trim().toLowerCase(),
         password,
         age: parseInt(age),
-        bio,
-        personalityType: personality,
-        lookingFor,
-        interests,
-        location,
       });
     } catch (e) {
       Alert.alert('Registration Failed', e.message);
@@ -109,50 +86,6 @@ export default function RegisterScreen({ navigation }) {
       <Text style={styles.stepSubtitle}>Tell us a little about yourself</Text>
       <TextInput style={styles.input} placeholder="Your Name" placeholderTextColor={COLORS.textMuted} value={name} onChangeText={setName} />
       <TextInput style={styles.input} placeholder="Age" placeholderTextColor={COLORS.textMuted} value={age} onChangeText={setAge} keyboardType="numeric" />
-      <TextInput style={styles.input} placeholder="Location (optional)" placeholderTextColor={COLORS.textMuted} value={location} onChangeText={setLocation} />
-      <Text style={styles.label}>Personality Type</Text>
-      <View style={styles.optionRow}>
-        {PERSONALITY_TYPES.map(p => (
-          <TouchableOpacity key={p} style={[styles.option, personality === p && styles.optionActive]} onPress={() => setPersonality(p)}>
-            <Text style={[styles.optionText, personality === p && styles.optionTextActive]}>{p}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>,
-
-    <View key="about" style={styles.stepContent}>
-      <Text style={styles.stepTitle}>About You</Text>
-      <Text style={styles.stepSubtitle}>Share what makes you unique</Text>
-      <TextInput
-        style={[styles.input, styles.textArea]}
-        placeholder="Write a short bio..."
-        placeholderTextColor={COLORS.textMuted}
-        value={bio}
-        onChangeText={setBio}
-        multiline
-        maxLength={500}
-      />
-      <Text style={styles.charCount}>{bio.length}/500</Text>
-      <Text style={styles.label}>Looking For</Text>
-      <View style={styles.optionRow}>
-        {LOOKING_FOR.map(l => (
-          <TouchableOpacity key={l} style={[styles.option, lookingFor === l && styles.optionActive]} onPress={() => setLookingFor(l)}>
-            <Text style={[styles.optionText, lookingFor === l && styles.optionTextActive]}>{l}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>,
-
-    <View key="interests" style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Interests</Text>
-      <Text style={styles.stepSubtitle}>Select at least 3 that you enjoy</Text>
-      <View style={styles.interestGrid}>
-        {INTEREST_OPTIONS.map(i => (
-          <TouchableOpacity key={i} style={[styles.interestTag, interests.includes(i) && styles.interestTagActive]} onPress={() => toggleInterest(i)}>
-            <Text style={[styles.interestText, interests.includes(i) && styles.interestTextActive]}>{i}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
     </View>,
 
     <View key="account" style={styles.stepContent}>
@@ -219,32 +152,11 @@ const styles = StyleSheet.create({
   stepContent: { flex: 1, gap: SPACING.md },
   stepTitle: { fontSize: 28, fontWeight: 'bold', color: COLORS.text },
   stepSubtitle: { fontSize: 16, color: COLORS.textSecondary, marginBottom: SPACING.sm },
-  label: { fontSize: 14, color: COLORS.textSecondary, marginTop: SPACING.sm },
   input: {
     backgroundColor: COLORS.inputBg, borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md, color: COLORS.text, fontSize: 16,
     borderWidth: 1, borderColor: COLORS.border,
   },
-  textArea: { height: 120, textAlignVertical: 'top' },
-  charCount: { color: COLORS.textMuted, fontSize: 12, textAlign: 'right' },
-  optionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-  option: {
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.round, borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.inputBg,
-  },
-  optionActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  optionText: { color: COLORS.textSecondary, fontSize: 14 },
-  optionTextActive: { color: COLORS.text, fontWeight: '600' },
-  interestGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-  interestTag: {
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.round, borderWidth: 1, borderColor: COLORS.border,
-    backgroundColor: COLORS.inputBg,
-  },
-  interestTagActive: { backgroundColor: COLORS.accent, borderColor: COLORS.accent },
-  interestText: { color: COLORS.textSecondary, fontSize: 14 },
-  interestTextActive: { color: COLORS.text, fontWeight: '600' },
   nav: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SPACING.xl, gap: SPACING.md },
   backButton: {
     flex: 1, padding: SPACING.md, borderRadius: BORDER_RADIUS.md,
